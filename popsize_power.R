@@ -16,12 +16,13 @@ pop<-data.frame(npop=seq(1000,15000,by=100)) #numbers that actually ran on stupi
 set.seed(628496)
 
 #this fxn requires one to plug in stuff:
-fxn <- function(pop, mean = 0.003776, sd = 0.0033, eff = 0.8, i = 2000){
+fxn <- function(pop, mean = 0.003776, sd = 0.0033, eff = 0.8, i = 2000, browse = F){
+if(browse) browser()
   df <- data.frame(id=1:pop)
   
   df$treatment <- factor(rbinom(df$id, 1, prob = 0.500), labels = c('vaccine','control'))
   
-  df$risk <- ifelse(df$treatment=='control',rtruncnorm(pop, a=0, b=1, mean = mean, sd = sd) 
+  df$risk <- ifelse(df$treatment=='control',rtruncnorm(pop, a=0, b=1, mean = mean, sd = sd) ## SB: Why is risk a random truncated normal?
                                            , (1-eff)*rtruncnorm(pop, a=0, b=1, mean = mean, sd = sd))
   
   p<-list(rep(NA,i))
@@ -31,8 +32,11 @@ fxn <- function(pop, mean = 0.003776, sd = 0.0033, eff = 0.8, i = 2000){
     mod <- glm(zika ~ treatment, family = binomial(link = 'logit'), data = df, control=glm.control(maxit=50))   
     p[j] <- coef(summary(mod))[2,4]
   }
-  return(length(p[p < 0.05])/length(p))
+  return(mean(p<.05)) ## this is equivalent to the earlier version but more concise: length(p[p < 0.05])/length(p))
 }
+
+## fxn(pop=1000, browse=T) ## to debug you can use this to see how the functions work line by line
+system.time(fxn(max(pop), i = 100)) ## to see how long it takes to do 100 simulations for the larges population size, 11 sec, so about 200 sec for all 2000
 
 pop$power<-apply(pop,1,fxn) #probably a million faster ways of doing this?
 
