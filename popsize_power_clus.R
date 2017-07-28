@@ -8,8 +8,8 @@ set.seed(628496)
 #  five PAHO regions.
 
 
-alpha <- 0.4065
-beta <- 172.65  #is this huge? This seems huge.
+alpha <- 0.4048946
+beta <- 152.7989  #is this huge? This seems huge.
 
 
 #Creating our population and keeping them in a df for future activities:
@@ -43,8 +43,8 @@ getProb <- function(df, a = alpha, b = beta, time, eff){
   for(clus in unique(df$cluster)){
     df$temp[df$cluster==clus] <- rbeta(1, a, b)
     df$zikaProb <- ifelse(df$immuneStatus=='control', 
-                                          1-exp(-(df$temp*time)), 
-                                          1-exp(-(((1-eff)*(df$temp))*time)))
+                          1-exp(-(df$temp*time)), 
+                          1-exp(-(((1-eff)*(df$temp))*time)))
   }
   df$zikaProb
 }
