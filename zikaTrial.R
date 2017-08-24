@@ -27,8 +27,6 @@ makePop <- function(trial,regSize){
   trial
 }
 
-#trial <- data.frame(region)
-#trial<-makePop(trial,300)
 
 getIndRR <- function(trial,regSize){
   for(reg in 1:length(trial$pop)){
@@ -38,7 +36,6 @@ getIndRR <- function(trial,regSize){
   trial
 }
 
-#trial<-getIndRR(trial,300)
 
 randomize <- function(trial, regSize){
   for(reg in 1:length(trial$pop)){
@@ -49,7 +46,7 @@ randomize <- function(trial, regSize){
   trial
 }
 
-#trial<-randomize(trial,300)
+
 
 mergeData<-function(paho, trial,regSize){   #merge PAHO rates and trial df
   paho<-rep(PAHOdata,regSize)
@@ -59,13 +56,13 @@ mergeData<-function(paho, trial,regSize){   #merge PAHO rates and trial df
   trial<-cbind(trial,paho)
 }
 
-#trial<-mergeData(paho,trial,300)
 
 totalRate<-function(trial,immuneDate = '2016-02-28', vaccEff){
   trial$totalRate<-ifelse(trial$date < as.Date(immuneDate),trial$indRR*trial$regRate,
                           trial$indRR*trial$regRate*ifelse(trial$studyArm=='vaccine',1-vaccEff,1))
   trial
 }
+
 
 simInf<-function(trial){
   trial<-trial[trial$totalRate != 0,]
@@ -108,21 +105,6 @@ getSurvStatus<-function(trial){
 }
 
 
-trial <- data.frame(region)
-trial<-makePop(trial,300)
-trial <- getIndRR(trial,300)
-trial<-randomize(trial,300)
-trial<-mergeData(paho,trial,300)
-trial<-totalRate(trial,vaccEff=0.8)
-trial<-simInf(trial)  
-
-both<-getSurvTime(trial)
-preImmune<-both$pre
-trial<-both$trial
-trial<-getSurvStatus(trial)
-
-survdat<-trial[,c(3,5,9,10)]
-
 
 simPower<-function(trial = trial, regSize=15,immuneDate = '2016-01-31', vaccEff=0.80, iter=99){
   pvec<-rep(NA,iter)
@@ -146,6 +128,9 @@ simPower<-function(trial = trial, regSize=15,immuneDate = '2016-01-31', vaccEff=
   return(mean(pvec<.05))
 }
 
+
+#Testing, testing:
+
 regSize<-seq(15,50,by=1)
 
 simByPopSize<-function(regSize){
@@ -156,6 +141,7 @@ simByPopSize<-function(regSize){
   }
   bySizeDF
 }
-boo<-simByPopSize(regSize=regSize)
-plot(boo$RegionSize,boo$Power)
+
+powerPop<-simByPopSize(regSize=regSize)
+plot(powerPop$RegionSize,powerPop$Power)
 
