@@ -123,3 +123,39 @@ trial<-getSurvStatus(trial)
 
 survdat<-trial[,c(3,5,9,10)]
 
+
+simPower<-function(trial = trial, regSize=15,immuneDate = '2016-01-31', vaccEff=0.80, iter=99){
+  pvec<-rep(NA,iter)
+  for(i in 1:iter){
+    trial <- data.frame(region)
+    trial<-makePop(trial,regSize)
+    trial <- getIndRR(trial,regSize)
+    trial<-randomize(trial,regSize)
+    trial<-mergeData(paho,trial,regSize)
+    trial<-totalRate(trial,immuneDate, vaccEff)
+    trial<-simInf(trial)  
+    
+    both<-getSurvTime(trial,immuneDate)
+    preImmune<-both$pre
+    trial<-both$trial
+    trial<-getSurvStatus(trial)
+    
+    mod<-glm(status~studyArm,family=binomial(link='logit'),data=trial)
+    pvec[i]<-coef(summary(mod))[2,4]
+  }
+  return(mean(pvec<.05))
+}
+
+regSize<-seq(15,50,by=1)
+
+simByPopSize<-function(regSize){
+  bySizeDF<-data.frame(RegionSize=rep(NA,length(regSize),Power=NA))
+  for(r in 1:length(regSize)){
+    bySizeDF$RegionSize[r] <- regSize[r]
+    bySizeDF$Power[r] <- simPower(regSize = regSize[r])
+  }
+  bySizeDF
+}
+boo<-simByPopSize(regSize=regSize)
+plot(boo$RegionSize,boo$Power)
+
