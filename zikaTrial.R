@@ -57,7 +57,8 @@ mergeData<-function(paho, trial,regSize){   #merge PAHO rates and trial df
 }
 
 
-totalRate<-function(trial,immuneDate = '2016-02-28', vaccEff){
+totalRate<-function(trial,startDate = min(trial$date), vaccEff){
+  immuneDate = as.Date(startDate) + 4
   trial$totalRate<-ifelse(trial$date < as.Date(immuneDate),trial$indRR*trial$regRate,
                           trial$indRR*trial$regRate*ifelse(trial$studyArm=='vaccine',1-vaccEff,1))
   trial
@@ -65,15 +66,15 @@ totalRate<-function(trial,immuneDate = '2016-02-28', vaccEff){
 
 
 simInf<-function(trial){
-  trial<-trial[trial$totalRate != 0,]
+  trial<-trial[trial$totalRate != 0,] #removing weeks with rates = 0 to avoid NaN with rexp() in next step
   trial$infectTime<-rexp(nrow(trial),rate=trial$totalRate)
   trial
 }
 
 
-getSurvTime<-function(trial,immuneDate = '2016-02-28',endDate=max(trial$date)){
+getSurvTime<-function(trial,startDate = min(trial$date), endDate=max(trial$date)){
+  immuneDate = as.Date(startDate) + 4
   trial<-trial[,c(5,1,2,3,4,7,8,9)] #reordering columns for pretty-ness and removing duplicate 'region'
-   #remove rows with totalRate = 0
   
   preImmune<-trial[trial$date < as.Date(immuneDate),]
   preImmune<-preImmune[preImmune$infectTime<=1,]
@@ -106,7 +107,8 @@ getSurvStatus<-function(trial){
 
 
 
-simPower<-function(trial = trial, regSize=15,immuneDate = '2016-01-31', vaccEff=0.80, iter=99){
+simPower<-function(trial = trial, regSize=15,startDate = min(trial$date), vaccEff=0.80, iter=99){
+  immuneDate = as.Date(startDate) + 4
   pvec<-rep(NA,iter)
   for(i in 1:iter){
     trial <- data.frame(region)
@@ -114,10 +116,10 @@ simPower<-function(trial = trial, regSize=15,immuneDate = '2016-01-31', vaccEff=
     trial <- getIndRR(trial,regSize)
     trial<-randomize(trial,regSize)
     trial<-mergeData(paho,trial,regSize)
-    trial<-totalRate(trial,immuneDate, vaccEff)
+    trial<-totalRate(trial,startDate, vaccEff)
     trial<-simInf(trial)  
     
-    both<-getSurvTime(trial,immuneDate)
+    both<-getSurvTime(trial,startDate)
     preImmune<-both$pre
     trial<-both$trial
     trial<-getSurvStatus(trial)
@@ -133,15 +135,15 @@ simPower<-function(trial = trial, regSize=15,immuneDate = '2016-01-31', vaccEff=
 
 regSize<-seq(15,50,by=1)
 
-simByPopSize<-function(regSize){
+simByPopSize<-function(regSize, startDate){
   bySizeDF<-data.frame(RegionSize=rep(NA,length(regSize),Power=NA))
   for(r in 1:length(regSize)){
     bySizeDF$RegionSize[r] <- regSize[r]
-    bySizeDF$Power[r] <- simPower(regSize = regSize[r])
+    bySizeDF$Power[r] <- simPower(regSize = regSize[r], startDate = startDate)
   }
   bySizeDF
 }
 
-powerPop<-simByPopSize(regSize=regSize)
+powerPop<-simByPopSize(regSize=regSize, startDate = '2016-01-013')
 plot(powerPop$RegionSize,powerPop$Power)
 
