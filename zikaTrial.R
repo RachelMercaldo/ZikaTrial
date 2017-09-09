@@ -1,3 +1,4 @@
+library(RCurl)
 library(tidyverse)
 library(magrittr)
 library(data.table)
@@ -5,15 +6,32 @@ library(mefa)
 library(gmodels)
 library(survival)
 
+#get the Andersen lab data from 1/3/2016 thru 5/21/2017, https://github.com/andersen-lab/Zika-cases-PAHO
+fileURLs<-c("https://raw.githubusercontent.com/andersen-lab/Zika-cases-PAHO/master/caribbean.csv",
+            "https://raw.githubusercontent.com/andersen-lab/Zika-cases-PAHO/master/central_america.csv",
+            "https://raw.githubusercontent.com/andersen-lab/Zika-cases-PAHO/master/south_america.csv")
+PAHOdata <- as.data.frame(unlist(lapply(fileURLs,fread), recursive=FALSE)) 
+
+#selecting top-10 places to be to get Zika
+PAHOdata <- subset(PAHOdata, select = c('susp.con.ZIKV.cases','V2','French.Guiana','Brazil','Colombia',
+                                        'Venezuela','Martinique','Puerto.Rico','Guadeloupe','Honduras',
+                                        'Mexico','Nicaragua')) 
+
+#Andersen data is awesome but is terribly formatted:
+PAHOdata <- setnames(PAHOdata[-1,], 1:2, c('year','date'))
+PAHOdata[1:52,1]<-'2016'; PAHOdata[53:nrow(PAHOdata),1]<-2017  
+PAHOdata$date <- as.Date(paste(PAHOdata$date,'-',PAHOdata$year, sep=""),"%d-%b-%Y")
+
+#These are the population sizes for the top-10 countries, taken from PAHO 
+##http://www.paho.org/hq/index.php?option=com_content&view=article&id=12390&Itemid=42090&lang=en 
+popSize<-c(276000,209553000,48650000,31518000,396000,3681000,472000,8190000,128624000,6184000)
+
+PAHOdata[,3:12]<-(PAHOdata[,3:12]*4.5)/popSize  #individual rates! I think!
+PAHOdata<-PAHOdata[,-1] #getting rid of the extra "year" column
+
+region <- colnames(PAHOdata[,2:11])
+
 set.seed(628496)
-
-PAHOdata<-read.csv("PAHOdata.csv") #Andersen lab data from 1/3/2016 thru 5/21/2017, 73 wks, https://github.com/andersen-lab/Zika-cases-PAHO
-PAHOdata$date<-as.Date(PAHOdata$date,"%m/%d/%Y")
-popSize<-c(472000,396000,3681000,8190000,128624000,6184000,209553000,48650000,276000,31518000)
-PAHOdata[,2:11]<-(PAHOdata[,2:11]*4.5)/popSize
-
-region <- colnames(PAHOdata[,-1])
-
 
 makePop <- function(trial,regSize){
   trial %<>% group_by(region) %<>% nest(.key = 'pop')
@@ -90,7 +108,7 @@ getSurvTime<-function(trial,startDate = min(trial$date), endDate=max(trial$date)
   notInfected<-trial[trial$infectTime>1 & !(trial$ID %in% infected$ID),]
   notInfected<-notInfected[!duplicated(notInfected$ID),] 
   notInfected$survt<-(as.Date(endDate)-as.Date(immuneDate))
- 
+  
   trial<-rbind(infected,notInfected)
   trial<-trial[order(trial$date,trial$region),]
   trial$survt<-as.numeric(trial$survt)
@@ -144,6 +162,5 @@ simByPopSize<-function(regSize, startDate){
   bySizeDF
 }
 
-powerPop<-simByPopSize(regSize=regSize, startDate = '2016-01-013')
+powerPop<-simByPopSize(regSize=regSize, startDate = '2016-01-13')
 plot(powerPop$RegionSize,powerPop$Power)
-
