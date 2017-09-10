@@ -80,7 +80,7 @@ mergeData<-function(paho, trial,regSize){   #merge PAHO rates and trial df
 
 
 totalRate<-function(trial,startDate = min(trial$date), vaccEff){
-  immuneDate = as.Date(startDate) + 4
+  immuneDate = as.Date(startDate) + 28
   trial$totalRate<-ifelse(trial$date < as.Date(immuneDate),trial$indRR*trial$regRate,
                           trial$indRR*trial$regRate*ifelse(trial$studyArm=='vaccine',1-vaccEff,1))
   trial
