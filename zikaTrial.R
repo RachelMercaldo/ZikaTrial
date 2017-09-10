@@ -142,8 +142,8 @@ simPower<-function(trial = trial, regSize=15,startDate = min(trial$date), vaccEf
     trial<-getSurvStatus(trial)
     
     if(binMod==TRUE){
-    mod<-glm(status~studyArm,family=binomial(link='logit'),data=trial)
-    pvec[i]<-coef(summary(mod))[2,4]
+      mod<-glm(status~studyArm,family=binomial(link='logit'),data=trial)
+      pvec[i]<-coef(summary(mod))[2,4]
     }
     
     if(coxMod==TRUE){
@@ -162,10 +162,10 @@ simByPopSize<-function(regSize, startDate,binMod=FALSE,coxMod=FALSE){
   for(r in 1:length(regSize)){
     bySizeDF$RegionSize[r] <- regSize[r]
     if(binMod==TRUE){
-    bySizeDF$PowerBin[r] <- simPower(regSize = regSize[r], startDate = startDate,binMod=binMod,coxMod=coxMod)
+      bySizeDF$PowerBin[r] <- simPower(regSize = regSize[r], startDate = startDate,binMod=binMod,coxMod=coxMod)
     }
     if(coxMod==TRUE){
-    bySizeDF$PowerCox[r] <- simPower(regSize = regSize[r], startDate = startDate,binMod=binMod,coxMod=coxMod)
+      bySizeDF$PowerCox[r] <- simPower(regSize = regSize[r], startDate = startDate,binMod=binMod,coxMod=coxMod)
     }
   }
   bySizeDF
@@ -176,3 +176,4 @@ regSize<-seq(15,50,by=5)
 powerPop<-simByPopSize(regSize=regSize, startDate = '2016-01-03',binMod=TRUE,coxMod=TRUE)
 plot(powerPop$RegionSize,powerPop$PowerBin,col="black",type='b')
 points(powerPop$RegionSize,powerPop$PowerCox,col="red",type='b')
+
