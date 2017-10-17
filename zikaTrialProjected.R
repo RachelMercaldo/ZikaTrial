@@ -284,3 +284,16 @@ infData<-simTrials(makeParms())
 
 save(infData, file = "simTrialsOutput.Rdata") #save data.table for later plotting.
 
+
+#GS Design stuff
+#try for n.fix:
+
+n.fix<-nBinomial(p1=0.0220623, p2=0.00441246, beta = 0.2)
+
+#n.fix=1316, 658 per arm (for a trial lasting 1 year)
+
+gsArgs <- list(k=4, test.type = 2, n.fix = n.fix, beta=0.2)
+gsBounds <- do.call(gsDesign, gsArgs)
+plot(gsBounds)
+
+gsBounds
