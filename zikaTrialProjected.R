@@ -61,8 +61,9 @@ paho<-data.table(Narino = PAHOdata$Colombia*PRF[1], Sucumbios = PAHOdata$Ecuador
 
 
 makeParms <- function(
-  regSize = 1000,  #regSize = pop size for one region. Can be a vector of possibilities. 8 regions means total of 8*regSize trial participants
-  vaccEff = 0.8, #Vaccine efficacy. Can be a vector of possibilities.
+  infTrial = TRUE,
+  regSize = c(50,100,150,200),  #regSize = pop size for one region. Can be a vector of possibilities. 8 regions means total of 8*regSize trial participants
+  vaccEff = c(0.5,0.8), #Vaccine efficacy. Can be a vector of possibilities.
   symptomRate = 0.225,  
   incubMedian = 5.9,    #Lessler, 2016
   incubDisperse = 1.46, #Lessler, 2016
@@ -75,17 +76,16 @@ makeParms <- function(
   TTC = TRUE, #If CZS, are women recruited Trying To Conceive? Can be a vector of both possibilities.
   pregRate = 0.075, #Taylor, 2003
   contraceptionRate = 0.73,   #UN 2015, Latin America and the Caribbean data for women 15-49
-  coxMod = TRUE, 
-  gs = TRUE,
-  assumedRate = 0.000138,
+  gs = c(TRUE,FALSE),
+  assumedRate = 0.00238,
   iter = 10 
 ){
-  return(as.list(environment()))
+  return(as.list(environment())) 
 }
 
 
 #study population fxn:
-#make a study population,assign individual RR, and randomize:
+#make a study population, assign individual RR, and randomize:
 makePop <- function(parms = makeParms()) with(parms, {
   regions = colnames(paho[,`Narino`:`Ucayali`])  #get region names from parameters
   trial<-data.table(id = paste(substr(rep(regions,each=regSize),1,2),1:regSize,sep=''))  #assign IDs based on region
@@ -104,14 +104,14 @@ CZSandPreg <- function(trial,parms) with(parms, {
     if(femaleOnly){
       trial$sex <- 'female'
     } else {
-      trial$sex <- factor(rbinom(regSize, 1, prob = 0.500), labels = c('male','female'))
+      trial$sex <- factor(rbinom(nrow(trial), 1, prob = 0.500), labels = c('male','female'))
     }
     
     if(TTC){
       trial$TTC <- ifelse(trial$sex == 'female','yes','no')
       trial$pregRate<-ifelse(trial$TTC == 'yes',pregRate,0)
     } else {
-      trial$TTC <- ifelse(trial$sex == 'female', sample(c('yes','no'), regSize, replace = TRUE, prob = c(1-contraceptionRate,contraceptionRate)),'no')
+      trial$TTC <- ifelse(trial$sex == 'female', sample(c('yes','no'), nrow(trial), replace = TRUE, prob = c(1-contraceptionRate,contraceptionRate)),'no')
       trial$pregRate<-ifelse(trial$sex == 'female',ifelse(trial$TTC == 'yes',pregRate,0),0) #assuming contraception is 100% effective
     }
   }
@@ -215,132 +215,112 @@ CZS <- function(trial,parms) with(parms,{
 })
 
 
-
-analyzeTrial <- function(trial, parms) with(parms, {
-  if(gs){
-    gsDesArgs = list(k=5,
+analyzeTrial <- function(parms, browse=F) with(parms, {
+  if(browse) browser()
+  if(infTrial){
+    gsDesArgs = list(k=5, 
                      test.type = 2,
                      alpha = 0.025,
                      beta = 0.1,
-                     timing = seq(0,1, l = 6)[-1])
+                     timing = seq(0, 1, l = 6)[-1])
+    gsPlan = do.call(gsDesign, gsDesArgs)
+    cumRates = assumedRate*c(1,(1-vaccEff))
+    fixedSamp = nBinomial(p1 = cumRates[1], p2 = cumRates[2], outtype = 2, beta = 0.1)
+    fixedInfs = sum(fixedSamp*cumRates)
     
-    gsPlan <- do.call(gsDesign, gsDesArgs)
+    contInfs = vaccInfs = date = pvec = parameters = as.numeric(list(NA))
     
-    cumHazs <- assumedRate*c(1, (1-vaccEff))
-    fixedSampSize <- nBinomial(p1 = cumHazs[1], p2 = cumHazs[2], outtype = 2, beta = 0.1)
-    fixedInfs <- sum(fixedSampSize*cumHazs)
-    fixedInfs
-    
-    infDays<-trial$date[trial$status==1]
-    infDays<-sort(infDays)
-    intTab <- data.table(events = round(gsPlan$timing*fixedInfs))
-    
-    
-    intTab[, tcal := (infDays[events])]
-    intTab <- intTab[!is.na(tcal)]
-    
-    intTab$trigger <- 'events'
-    #did not remove events after maxDurationDay because we are currently running the trial for 73 weeks and already eliminating anything that comes after?
-    
-    if(nrow(intTab) < gsPlan$k) intTab <- rbind(intTab, data.table(events = NA, tcal = max(trial$date), trigger = 'end time'))
-    
-    if(nrow(intTab) == gsPlan$k) {
-      intTab <- cbind(intTab, nominalP = pnorm(gsPlan$lower$bound))
-    }else{
-      gsDesArgsAdj <- within(gsDesArgs, {
-        k<-nrow(intTab)
-        timing <- c(timing[k-1],1)
-      })
-      if(gsDesArgsAdj$k > 1){
-        gsPlanAdj <- do.call(gsDesign,gsDesArgsAdj)
-        intTab <- cbind(intTab, nominalP = pnorm(gsPlanAdj$lower$bound))
+    for(i in 1:iter){
+      trial<-makePop(parms)
+      trial<-CZSandPreg(trial,parms)
+      trial<-mergeData(trial,parms)
+      trial<-simInf(trial,parms)
+      trial<-symptomatic(trial,parms)
+      trial<-simPreg(trial,parms)
+      trial<-CZS(trial,parms)
+      
+      infDays = sort(trial$date[trial$status == 1])
+      
+      if(gs){
+        trialIter = data.table(events = round(gsPlan$timing*fixedInfs))
+        
+        trialIter[,tcal := infDays[events]]
+        trialIter <- trialIter[!is.na(tcal)]
+        trialIter$trigger = 'events'
+        
+        if(nrow(trialIter) < gsPlan$k){
+          trialIter = rbind(trialIter, data.table(events = NA, tcal = max(trial$date), trigger = 'end time'))
+        }
+        
+        if(nrow(trialIter) == gsPlan$k){
+          trialIter = cbind(trialIter, nominalP = pnorm(gsPlan$lower$bound)) 
+        }else{
+          gsDesArgsAdj = within(gsDesArgs, {
+            k = nrow(trialIter)
+            timing = seq(0, 1, l = k + 1)[-1]
+          })
+          if(gsDesArgsAdj$k > 1){
+            gsPlanAdj = do.call(gsDesign, gsDesArgsAdj)
+            trialIter = cbind(trialIter, nominalP = pnorm(gsPlanAdj$lower$bound))
+          }else{
+            trialIter = data.table(events = NA, tcal = max(trial$date), trigger = 'end time', nominalP = 0.025)
+          }
+        }
       }else{
-        intTab <- data.table(events = NA, tcal = max(trial$date), trigger = 'end time', nominalP= 0.025)
+        trialIter = data.table(events = NA, tcal = max(trial$date), trigger = 'end time', nominalP = 0.025)
       }
-    }
-  }else{
-    intTab <- data.table(events = NA, tcal = max(trial$date), trigger = 'end time', nominalP = 0.025)
-  }
-  
-  intTab$contCases <- intTab$vaccCases <- intTab$rawPinfection <- as.numeric(NA)
-  intTab$rawPsymptoms <- intTab$logHRinfection <- intTab$logHRsymptoms <- as.numeric(NA)
-  intTab$rawPczs <- intTab$betaCZS <- as.numeric(NA)
-  intTab$vaccGood <- intTab$vaccBad <- as.logical(NA)
-  
-  #Analysis:
-  
-  analysisNum <- 0
-  trialStopped <- FALSE
-  
-  while(!trialStopped){
-    analysisNum <- analysisNum + 1
-    analysisDate <- intTab[analysisNum, tcal]
-    trial <- as.data.table(trial)
-    trial[date > analysisDate, date := Inf]
-    
-    #infection:
-    
-    infectionMod <- try(coxph(Surv(rep(0,nrow(trial)),trial$survt, trial$status == 1) ~ trial$arm, frailty(trial$region, distribution = 'gamma', sparse = FALSE)), silent = T)
-    useInfectionMod <- !inherits(infectionMod, 'try-error')
-    
-    intTab[analysisNum, rawPinfection := summary(infectionMod)$logtest['pvalue']]
-    intTab[analysisNum, logHRinfection := summary(infectionMod)$coefficients[,1]]
-    
-    intTab[analysisNum, vaccGoodInfection := rawPinfection < ifelse(gs, nominalP, .025) & logHRinfection > 0]
-    intTab[analysisNum, vaccBadInfection := rawPinfection < ifelse(gs, nominalP, .025) & logHRinfection <0]
-    #symptoms:
-    
-    symptomMod <- try(coxph(Surv(rep(0,nrow(trial)),trial$survtSymptoms, trial$status == 1) ~ trial$arm, frailty(trial$region, distribution = 'gamma', sparse = FALSE)), silent = T)
-    useSymptomMod <- !inherits(infectionMod, 'try-error') 
-    
-    intTab[analysisNum, rawPsymptoms := summary(symptomMod)$logtest['pvalue']]
-    intTab[analysisNum, logHRsymptoms := summary(symptomMod)$coefficients[,1]]
-    
-    intTab[analysisNum, vaccGoodSymptoms := rawPsymptoms < ifelse(gs, nominalP, .025) & logHRsymptoms > 0]
-    intTab[analysisNum, vaccBadSymptoms := rawPsymptoms < ifelse(gs, nominalP, .025) & logHRsymptoms <0]
-    
-    #CZS (binomial):
-    if(CZS){
-      CZSmod<-try(glm(CZS~arm,family=binomial(link='logit'),data=trial))
-      useCZSmod <- !inherits(CZSmod, 'try-error')
       
-      intTab[analysisNum, rawPczs := (coef(summary(CZSmod))[2,4])]
-      intTab[analysisNum, betaCZS := (coef(summary(CZSmod))[2,1])] #placeholder
+      analysisNum = 0
+      trialStopped = FALSE
       
-      intTab[analysisNum, vaccGoodCZS := rawPczs < ifelse(gs, nominalP, .025) & betaCZS > 0]
-      intTab[analysisNum, vaccBadCZS := rawPczs < ifelse(gs, nominalP, .025) & betaCZS <0]
+      while(!trialStopped){
+        analysisNum = analysisNum + 1
+        analysisDate = trialIter[analysisNum, tcal]
+        censTrial = as.data.table(trial)
+        censTrial[date > analysisDate, date := Inf]
+        
+        infectionMod <- try(coxph(Surv(rep(0,nrow(censTrial)), censTrial$survt, censTrial$status == 1) ~ censTrial$arm == 'vaccine', 
+                                  frailty(censTrial$region, distribution = 'gamma', sparse = FALSE)), silent = TRUE)
+        useInfectionMod <- !inherits(infectionMod, 'try-error')
+        
+        trialIter[analysisNum, rawPinfection := summary(infectionMod)$logtest['pvalue']]
+        trialIter[analysisNum, logHRinfection := summary(infectionMod)$coefficients[,1]]
+        
+        trialIter[analysisNum, vaccGoodInfection := rawPinfection < ifelse(gs, nominalP, .025) & logHRinfection < 0]
+        trialIter[analysisNum, vaccBadInfection := rawPinfection < ifelse(gs, nominalP, .025) & logHRinfection > 0]
+        
+        trialIter$vaccCases[analysisNum] <- nrow(censTrial[arm=='vaccine' & survt != Inf & date < trialIter$tcal[analysisNum],])
+        trialIter$contCases[analysisNum] <- nrow(censTrial[arm=='control' & survt != Inf & date < trialIter$tcal[analysisNum],])
+        
+        earlyStop <- trialIter[analysisNum, vaccGoodInfection | vaccBadInfection]
+        
+        if(any(earlyStop, na.rm=T)) trialStopped <- T
+        if(analysisNum==nrow(trialIter)) trialStopped <- T
+      }
+      dat<-trialIter[max(nrow(trialIter)), `tcal`]
+      
+      dat<-as.character(dat[[1]][1])
+      
+      contInfs[i] <- trialIter[max(nrow(trialIter)),`contCases`]
+      vaccInfs[i] <- trialIter[max(nrow(trialIter)), `vaccCases`]
+      pvec[i] <- trialIter[max(nrow(trialIter)), `rawPinfection`]
+      date[i] <- dat
     }
-    
-    
-    #Other stuff I don't understand yet:
-    
-    intTab$vaccCases[analysisNum] <- trial[arm=='vaccine', sum(trial$date < analysisDate)]
-    intTab$contCases[analysisNum] <- trial[arm=='control', sum(trial$date < analysisDate)]
-    
-    earlyStop <- intTab[analysisNum, vaccGood | vaccBad]
-    if(any(earlyStop, na.rm=T)) trialStopped <- T
-    if(analysisNum==nrow(intTab)) trialStopped <- T
   }
-  trialOut<-intTab
-  trialOut
+  out<-data.table(parameters = list(parms),
+                   contInfsMean = mean(contInfs),
+                   contInfsMedian = median(contInfs),
+                   vaccInfsMean = mean(vaccInfs),
+                   vaccInfsMedian = median(vaccInfs),
+                   power = mean(pvec < 0.05),
+                   meanDate = mean(as.Date(date)))
+  out
 })
 
-runTrial<-function(parms = makeParms()){
-  trial<-makePop(parms)
-  trial<-CZSandPreg(trial,parms)
-  trial<-mergeData(trial,parms)
-  trial<-simInf(trial,parms)
-  trial<-symptomatic(trial,parms)
-  trial<-simPreg(trial,parms)
-  trial<-CZS(trial,parms)
-  trialOut <- analyzeTrial(trial,parms)
-  trialOut
-}
+params<- makeParms()
+params<- expand.grid(params)
 
-parms<- makeParms()
-parms<- expand.grid(parms)
-results <- foreach(parms = iter(parms, by='row')) %do% runTrial(parms)
-
-
-
+results <- foreach(parms = iter(params, by='row')) %do% analyzeTrial(parms) 
+trialOut <- do.call('rbind', results)
+trialOut <- cbind(params,trialOut)
 
