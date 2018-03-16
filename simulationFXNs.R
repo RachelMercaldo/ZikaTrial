@@ -1,7 +1,7 @@
 #Simulating trial - functions
 
-listParms <- function(
-  trialType = c('CZStrial','infTrial','symptomTrial'),
+makeParms <- function(
+  trialType = c('CZStrial'),
   regSize = seq(10,1500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
   vaccEff = c(.5,.7,.8,.9), #Vaccine efficacy. 
   startDate = c('2016-01-03','2016-04-03','2016-04-17', '2016-05-15','2016-06-19','2016-07-03', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'), #startdate of data
@@ -23,22 +23,18 @@ listParms <- function(
   assumedRate = 0.00238, #Assumed rate of infection, for group sequential trial design
   assumedRateSymptoms = 0.00238*0.225, #Assumed rate of symptoms, for group sequential trial design
   assumedRateCZS = 0.00238*0.06, #Most conservative rate of CZS, for group sequential trial design
-  iter = 500 #for full simulation, use 500 iterations
+  iter = 500 
 ){
-  return(as.list(environment())) 
-}
-
-makeParms<-function(parms = listParms()) with(parms,{
-  parms<-expand.grid(parms)
+  parms <- expand.grid(as.list(environment()))
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$TTC == TRUE)),]
   parms<-parms[!(parms$trialType !='infTrial' & (parms$testInterval %in% c(14,28))),]
-  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-17', '2016-05-15','2016-06-19', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'))),]
+  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-03','2016-07-03','2016-04-17', '2016-05-15','2016-06-19', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'))),]
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$regSize > 1000)),]
-})
+}
   
 
 #Make a study population, assign individual risks, and randomize to vaccine or control:
-makePop <- function(paho, parms) with(parms, {
+makePop <- function(paho, parms = makeParms()) with(parms, {
   regions<-colnames(paho)
   regions<-regions[1:8]  #get region names from paho data
   trial<-data.table(id = paste(substr(rep(regions,each=regSize),1,2),1:regSize,sep=''))  #assign unique IDs based on region
@@ -180,7 +176,6 @@ persistence <- function(trial,parms,browse = F) with(parms, {
   for(dat in 1:length(Dates)){
     testDates[dat] <- Dates[dat] - as.Date(startDate)
   }
-  testDates<-unlist(testDates)
   
   trial$firstDetectableBlood<-ifelse(trial$symptomatic == 1 & trial$survtSymptoms < (trial$survt + 2), trial$survtSymptoms, trial$survt+2) #assume detectable after 2 days
   trial$lastDetectableBlood<-rweibull(nrow(trial), persistBloodK, persistBloodC) + trial$survt

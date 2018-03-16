@@ -95,15 +95,15 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
       cens = cens[time > analysisDate, outcome := 0]
       
       if(sum(cens$outcome[cens$arm=='vaccine']) == 0){
-        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = max(cens$survt[is.finite(cens$survt)]), outcome = 1)
+        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = trialIter$tcal[analysisNum], outcome = 1)
         cens <- rbind(cens, standInV, fill=TRUE)
-        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = max(cens$survt[is.finite(cens$survt)]), outcome = 1)
+        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = trialIter$tcal[analysisNum], outcome = 1)
         cens <- rbind(cens, standInC, fill=TRUE)
       } 
       if(sum(cens$outcome[cens$arm=='control']) == 0){
-        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = max(cens$survt[is.finite(cens$survt)]), outcome = 1)
+        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = trialIter$tcal[analysisNum], outcome = 1)
         cens <- rbind(cens, standInV, fill=TRUE)
-        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = max(cens$survt[is.finite(cens$survt)]), outcome = 1)
+        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = trialIter$tcal[analysisNum], outcome = 1)
         cens <- rbind(cens, standInC, fill=TRUE)
       } 
       
