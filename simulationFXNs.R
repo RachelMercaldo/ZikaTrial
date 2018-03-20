@@ -1,7 +1,7 @@
 #Simulating trial - functions
 
 makeParms <- function(
-  trialType = c('CZStrial'),
+  trialType = c('CZStrial','infTrial','symptomTrial'),
   regSize = seq(10,1500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
   vaccEff = c(.5,.7,.8,.9), #Vaccine efficacy. 
   startDate = c('2016-01-03','2016-04-03','2016-04-17', '2016-05-15','2016-06-19','2016-07-03', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'), #startdate of data
@@ -118,7 +118,7 @@ simInf<-function(trial,parms) with(parms, {
   notInfected$survt<- Inf
   
   trial<-rbind(infected,notInfected)
-  trial<-trial[order(trial$date,trial$region),]
+  trial<-trial[order(trial$id,trial$date),]
   trial$survt<-as.numeric(trial$survt)
   
   trial$status <- ifelse(trial$infectTime <= 1, 1, 0)
