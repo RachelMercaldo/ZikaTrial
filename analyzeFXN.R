@@ -163,3 +163,5 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
   
   out
 })
+
+#analyzeTrial(parms) 
