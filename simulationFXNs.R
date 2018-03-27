@@ -184,8 +184,8 @@ symptomatic <- function(trial,parms) with(parms, {
   trial
 })
 
-trial<-symptomatic(trial,parms)
-head(trial)
+# trial<-symptomatic(trial,parms)
+# head(trial)
 
 #quick interval function for persistence sim:
 in_interval <- function(x, lower, upper){
