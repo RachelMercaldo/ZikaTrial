@@ -197,20 +197,30 @@ persistence <- function(trial,parms,browse = F) with(parms, {
   if(browse) browser()
   Dates <- seq.Date(as.Date(startDate),as.Date(maxEnddate), by = testInterval) #which dates will be lab test dates
   testDates <- list()
-  for(dat in 1:length(Dates)){   #in terms of number of days since trial start:
-    testDates[dat] <- Dates[dat] - as.Date(startDate)
-  }
-  
+
+  testDates <- Dates - as.Date(startDate)
+
   trial$firstDetectableBlood<-ifelse(trial$symptomatic == 1 & trial$survtSymptoms < (trial$survt + 2), trial$survtSymptoms, trial$survt+2) #assume detectable after 2 days
   trial$lastDetectableBlood<-rweibull(nrow(trial), persistBloodK, persistBloodC) + trial$survt
-  
-  trial$testResult <- 0
-  
-  for(ind in 1:nrow(trial)){   #evil for-loop. If any of the test dates lies within the RNA detection days, testResult = 1.
-    if(trial[ind,'status'] == 1){
-    trial[ind,'testResult']<-ifelse(any(in_interval(unlist(testDates),as.numeric(trial[ind,'firstDetectableBlood']),as.numeric(trial[ind,'lastDetectableBlood']))),1,0)
-    }else{trial[ind,'testResult'] <- 0}
-  }
+
+trial$testResult <- 0
+temp <- trial[status==1, .(id, status, firstDetectableBlood, lastDetectableBlood)]
+temp2 <- temp[rep(1:nrow(temp), each=length(testDates))]
+temp2$testDate <- rep(testDates, nrow(temp))
+temp2[,testResult := in_interval(testDate, firstDetectableBlood, lastDetectableBlood)] 
+temp3 <- temp2[,.(testResult=any(testResult>0)), id]
+posIDs <- temp3[testResult==T, id]
+trial[id %in% posIDs, testResult:=1]
+## trial[testResult==1,.(id, firstDetectableBlood, lastDetectableBlood)]
+
+##############
+  ## OLD
+  ## for(ind in 1:nrow(trial)){   #evil for-loop. If any of the test dates lies within the RNA detection days, testResult = 1.
+  ##   if(trial[ind,'status'] == 1){
+  ##   trial[ind,'testResult']<-ifelse(any(in_interval(testDates,as.numeric(trial[ind,'firstDetectableBlood']),as.numeric(trial[ind,'lastDetectableBlood']))),1,0)
+  ##   }else{trial[ind,'testResult'] <- 0}
+  ## }
+##############
   #the above uses symptoms only to determine beginning of detection interval. If it's a symptom trial, however, symptoms must be present for testResult=1.
   if(trialType == 'symptomTrial'){
     trial$testResult<-ifelse(trial$testResult == 1 & trial$symptomatic == 1, 1, 0) 
