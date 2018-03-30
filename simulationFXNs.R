@@ -13,12 +13,12 @@ makeParms <- function(
   maxEnddate = '2017-05-21', #last week of infection rates
   maxCZSdate = '2018-02-25', #last possible birthdate for women pregnant by maxEndDate.
   testInterval = c(7,14,28), #how many days separate lab tests
-  CZSTrim1 = 0.11, #Eppes, 2017
-  CZSTrim2 = 0.06, #Eppes, 2017
-  CZSTrim3 = 0.06, #Eppes, 2017
+  CZSTrim1 = 0.15, #Eppes, 2017
+  CZSTrim2 = 0.0225, #Eppes, 2017
+  CZSTrim3 = 0.0225, #Eppes, 2017
+  multiCZSrate = 0.21, 
   TTC = c(TRUE,FALSE), #If CZS, are women recruited Trying To Conceive (TTC)? If FALSE, assumes 1-contraceptionRate for prevalence of women TTC
-  lastPregRate = 0.001, #Taylor, 2003, gave .05 for end of 12 months. Assumption that it would be much lower, but not 0, for 18 months 
-  firstPregRate = 0.30, #Taylor, 2003
+  startPregRate = 0.2126546, #Taylor, 2003, estimated 0.3 for first cycle, 0.05 for 12th. alpha = 0.3, beta = 0.861299. Rate = mean of first 6 months
   contraceptionRate = 0.73, #UN 2015, Latin America and the Caribbean data for women 15-49
   assumedRate = 0.00238, #Assumed rate of infection, for group sequential trial design
   assumedRateSymptoms = 0.00238*0.225, #Assumed rate of symptoms, for group sequential trial design
@@ -70,14 +70,13 @@ mergeData <- function(trial, paho, parms) with(parms, {
 # head(trial)
 
 #If a CZS trial, this gets conception time by assigning each woman monthly conception 'risk' and simulating time-to-conception
-simPreg <- function(trial,parms, browse=F) with(parms, {
+simPreg <- function(trial,parms, probs = cycleProbs, browse=F) with(parms, {
   if(browse) browser()
   if(trialType == 'CZStrial'){
     immuneDate <- as.Date(startDate) + 30
     mos<-as.numeric(as.Date(maxEnddate)-as.Date(startDate))
     mosLengthOut<-mos/28
-    cycleProbs<-rev(seq(lastPregRate,firstPregRate,length.out = 19)) 
-    cycleProbs<-cycleProbs[1:mosLengthOut]
+    cycleProbs<-probs[1:mosLengthOut]
     
     pregTrial<-trial[!duplicated(trial$id),]
     pregTrial<-rep(pregTrial, each =mosLengthOut)
@@ -103,6 +102,7 @@ simPreg <- function(trial,parms, browse=F) with(parms, {
   trial
 })
 
+
 # trial<-simPreg(trial,parms)
 # head(trial)
 
@@ -110,7 +110,8 @@ simPreg <- function(trial,parms, browse=F) with(parms, {
 #Simulate infection. Using weekly total risk, simulate time-to-infection. 
 #Following this, individuals infected before the immune date (30 days post start) are removed,
 #  and all remaining individuals have survival times until first week infectTime <= 1, or Inf for those uninfected
-simInf<-function(trial,parms) with(parms, { 
+simInf<-function(trial,parms, browse=F) with(parms, { 
+  if(browse) browser()
   immuneDate <- as.Date(startDate) + 30 #assuming 1 month until vaccine is protective
   
   trial<-trial[trial$totalRate != 0,] #removing weeks with rates = 0 to avoid problems with rexp() in next step 
@@ -124,14 +125,23 @@ simInf<-function(trial,parms) with(parms, {
   #removes all the weeks prior to immunity and all the participants who were infected before immunity
   
   infected<-trial[trial$infectTime<=1,]
-  infected<-infected[!duplicated(infected$id),]  #takes first instance of infectTime <= 1 for any id
+  infected$dup<-ifelse(duplicated(infected$id),1,0)
+  dups<-infected[infected$dup==1,]
+  multiInfect<-infected[infected$id %in% dups$id,]
+  multiInfect$dup<-1
+  multiInfect$survt<-as.numeric((multiInfect$date-immuneDate) + 7*multiInfect$infectTime)
+  
+  infected<-infected[!duplicated(infected$id) & !(infected$id %in% multiInfect$id),] #takes first instance of infectTime <= 1 for any id
   infected$survt<-(infected$date - immuneDate) + 7*infected$infectTime
   
-  notInfected<-trial[trial$infectTime>1 & !(trial$id %in% infected$id),]
+  notInfected<-trial[trial$infectTime>1 & !(trial$id %in% infected$id) & !(trial$id %in% multiInfect$id),]
   notInfected<-notInfected[!duplicated(notInfected$id),] 
+  notInfected$dup<-0
   notInfected$survt<- Inf
   
   trial<-rbind(infected,notInfected)
+  trial<-rbind(trial,multiInfect)
+  
   trial<-trial[order(trial$id,trial$date),]
   trial$survt<-as.numeric(trial$survt)
   
@@ -155,20 +165,32 @@ getCZSoutcome <- function(trial,parms,browse=F) with(parms, {
     trial$birthDate <- as.Date(startDate) + trial$birthTime
     
     trial<-as.data.table(trial)
-    trial$trimesterInfected <- as.character(Inf)  #keeping a record of trimester infected. Could skip, but useful for debugging
+    trial$trimesterInfected <- Inf #keeping a record of trimester infected. Could skip, but useful for debugging
     
-    setDT(trial)[conceptionTime <= survt & survt <= (conceptionTime + 93), trimesterInfected := 'First']
-    setDT(trial)[(conceptionTime + 94) <= survt & survt <= (conceptionTime + 184), trimesterInfected := 'Second'] 
-    setDT(trial)[(conceptionTime + 185) <= survt & survt <= (conceptionTime + 280),trimesterInfected := 'Third']
+    setDT(trial)[conceptionTime <= survt & survt <= (conceptionTime + 93), trimesterInfected := 1]
+    setDT(trial)[(conceptionTime + 94) <= survt & survt <= (conceptionTime + 184), trimesterInfected := 2] 
+    setDT(trial)[(conceptionTime + 185) <= survt & survt <= (conceptionTime + 280),trimesterInfected := 3]
     suppressWarnings(setDT(trial)[conceptionTime == Inf | survt == Inf, trimesterInfected := Inf])
     
     trial$czsProb <- 0
     
-    trial[trimesterInfected == 'First', czsProb := CZSTrim1]
-    trial[trimesterInfected == 'Second', czsProb := CZSTrim2]
-    trial[trimesterInfected == 'Third', czsProb := CZSTrim3]
+    multiInfect<-trial[trial$dup==1,]
+    multiInfect<-multiInfect[,{x=unique(trimesterInfected)
+                  nnn=x[is.finite(x)]
+                  nn=length(nnn)
+                           list(n=nn)},by=id]
+    
+    multiInfect<-multiInfect[multiInfect$n > 1,]
+    
+    trial<-trial[!duplicated(trial$id),]
+    trial[trimesterInfected == 1, czsProb := CZSTrim1]
+    trial[trimesterInfected == 2, czsProb := CZSTrim2]
+    trial[trimesterInfected == 3, czsProb := CZSTrim3]
+    
+    trial$czsProb<-ifelse(trial$trimesterInfected == 1 & trial$id %in% multiInfect$id,multiCZSrate,trial$czsProb)
     
     trial$CZS <- suppressWarnings(rbinom(nrow(trial), 1, prob = trial$czsProb)) #CZS yes/no
+    
   }
   trial
 })
@@ -186,11 +208,6 @@ symptomatic <- function(trial,parms) with(parms, {
 
 # trial<-symptomatic(trial,parms)
 # head(trial)
-
-#quick interval function for persistence sim:
-in_interval <- function(x, lower, upper){
-  lower <= x & x <= upper
-}
 
 #test results for zikv, given viral persistence
 persistence <- function(trial,parms,browse = F) with(parms, {
