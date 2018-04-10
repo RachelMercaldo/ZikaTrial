@@ -5,15 +5,7 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
   
   set.seed(628496)
   
-  if(trialType == 'infTrial'){
-    assumedRate<-assumedRate
-  }
-  if(trialType == 'symptomTrial'){
-    assumedRate<-assumedRateSymptoms
-  }
-  if(trialType == 'CZStrial'){
-    assumedRate<-assumedRateCZS
-  }
+  immuneDate = as.Date(startDate) + 30
   
   gsDesArgs = list(k=5, 
                    test.type = 2,
@@ -95,15 +87,15 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
       cens = cens[time > analysisDate, outcome := 0]
       
       if(sum(cens$outcome[cens$arm=='vaccine']) == 0){
-        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = trialIter$tcal[analysisNum], outcome = 1)
+        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = as.numeric(trialIter$tcal[analysisNum]-immuneDate), outcome = 1)
         cens <- rbind(cens, standInV, fill=TRUE)
-        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = trialIter$tcal[analysisNum], outcome = 1)
+        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = as.numeric(trialIter$tcal[analysisNum]-immuneDate), outcome = 1)
         cens <- rbind(cens, standInC, fill=TRUE)
       } 
       if(sum(cens$outcome[cens$arm=='control']) == 0){
-        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = trialIter$tcal[analysisNum], outcome = 1)
+        standInV <- data.table(time = trialIter$tcal[analysisNum], arm = 'vaccine', survt = as.numeric(trialIter$tcal[analysisNum]-immuneDate), outcome = 1)
         cens <- rbind(cens, standInV, fill=TRUE)
-        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = trialIter$tcal[analysisNum], outcome = 1)
+        standInC <- data.table(time = trialIter$tcal[analysisNum], arm = 'control', survt = as.numeric(trialIter$tcal[analysisNum]-immuneDate), outcome = 1)
         cens <- rbind(cens, standInC, fill=TRUE)
       } 
       
@@ -124,7 +116,7 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
         trialIter[analysisNum, rawP := summary(mod)$logtest['pvalue']]
         trialIter[analysisNum, logHR := summary(mod)$coefficients[,1]]
       }else if(trialType == 'CZStrial'){
-        mod <- try(glm(CZS ~ arm, family=binomial(link=logit),data=cens))
+        mod <- try(glm(outcome ~ arm, family=binomial(link=logit),data=cens))
         useMod <- !inherits(mod, 'try-error')
         
         

@@ -5,7 +5,7 @@ makeParms <- function(
   regSize = seq(10,1500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
   vaccEff = c(.5,.7,.8,.9), #Vaccine efficacy. 
   startDate = c('2016-01-03','2016-04-03','2016-04-17', '2016-05-15','2016-06-19','2016-07-03', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'), #startdate of data
-  symptomRate = 0.225,
+  symptomRate = 0.225, #Petersen, 2016
   incubK = 3.132, #Lessler
   incubC = 6.632, #Lessler
   persistBloodK = 2.007, #Lessler
@@ -13,17 +13,15 @@ makeParms <- function(
   maxEnddate = '2017-05-21', #last week of infection rates
   maxCZSdate = '2018-02-25', #last possible birthdate for women pregnant by maxEndDate.
   testInterval = c(7,14,28), #how many days separate lab tests
-  CZSTrim1 = 0.15, #Eppes, 2017
-  CZSTrim2 = 0.0225, #Eppes, 2017
-  CZSTrim3 = 0.0225, #Eppes, 2017
+  CZSTrim1 = 0.15, 
+  CZSTrim2 = 0.0227, 
+  CZSTrim3 = 0.0227, 
   multiCZSrate = 0.21, 
   TTC = c(TRUE,FALSE), #If CZS, are women recruited Trying To Conceive (TTC)? If FALSE, assumes 1-contraceptionRate for prevalence of women TTC
-  startPregRate = 0.2126546, #Taylor, 2003, estimated 0.3 for first cycle, 0.05 for 12th. alpha = 0.3, beta = 0.861299. Rate = mean of first 6 months
+  startPregRate = 0.2126546, #Taylor, 2003, estimated 0.3 for first cycle, 0.05 for 12th. alpha = 0.3, beta = 0.861299. Mean of first 6 months for start.
   contraceptionRate = 0.73, #UN 2015, Latin America and the Caribbean data for women 15-49
-  assumedRate = 0.00238, #Assumed rate of infection, for group sequential trial design
-  assumedRateSymptoms = 0.00238*0.225, #Assumed rate of symptoms, for group sequential trial design
-  assumedRateCZS = 0.00238*0.06, #Assumed rate of CZS, for group sequential trial design
-  iter = 500 
+  assumedRate = 0.0005, #Assumed rate, for group sequential trial design
+  iter = 250 
 ){
   parms <- expand.grid(as.list(environment()))
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$TTC == TRUE)),]
@@ -31,7 +29,7 @@ makeParms <- function(
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-03','2016-07-03','2016-04-17', '2016-05-15','2016-06-19', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'))),]
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$regSize > 1000)),]
 }
-  
+
 # parms<-makeParms()
 # parms<-parms[1,]
 # parms$iter<-50
@@ -126,9 +124,10 @@ simInf<-function(trial,parms, browse=F) with(parms, {
   
   infected<-trial[trial$infectTime<=1,]
   infected$dup<-ifelse(duplicated(infected$id),1,0)
+  infected$dup<-as.numeric(infected$dup)
   dups<-infected[infected$dup==1,]
   multiInfect<-infected[infected$id %in% dups$id,]
-  multiInfect$dup<-1
+  if(nrow(multiInfect) > 0) multiInfect$dup<-1
   multiInfect$survt<-as.numeric((multiInfect$date-immuneDate) + 7*multiInfect$infectTime)
   
   infected<-infected[!duplicated(infected$id) & !(infected$id %in% multiInfect$id),] #takes first instance of infectTime <= 1 for any id
@@ -176,9 +175,9 @@ getCZSoutcome <- function(trial,parms,browse=F) with(parms, {
     
     multiInfect<-trial[trial$dup==1,]
     multiInfect<-multiInfect[,{x=unique(trimesterInfected)
-                  nnn=x[is.finite(x)]
-                  nn=length(nnn)
-                           list(n=nn)},by=id]
+    nnn=x[is.finite(x)]
+    nn=length(nnn)
+    list(n=nn)},by=id]
     
     multiInfect<-multiInfect[multiInfect$n > 1,]
     
@@ -214,30 +213,31 @@ persistence <- function(trial,parms,browse = F) with(parms, {
   if(browse) browser()
   Dates <- seq.Date(as.Date(startDate),as.Date(maxEnddate), by = testInterval) #which dates will be lab test dates
   testDates <- list()
-
+  
   testDates <- Dates - as.Date(startDate)
-
+  
   trial$firstDetectableBlood<-ifelse(trial$symptomatic == 1 & trial$survtSymptoms < (trial$survt + 2), trial$survtSymptoms, trial$survt+2) #assume detectable after 2 days
   trial$lastDetectableBlood<-rweibull(nrow(trial), persistBloodK, persistBloodC) + trial$survt
-
-trial$testResult <- 0
-temp <- trial[status==1, .(id, status, firstDetectableBlood, lastDetectableBlood)]
-temp2 <- temp[rep(1:nrow(temp), each=length(testDates))]
-temp2$testDate <- rep(testDates, nrow(temp))
-temp2[,testResult := in_interval(testDate, firstDetectableBlood, lastDetectableBlood)] 
-temp3 <- temp2[,.(testResult=any(testResult>0)), id]
-posIDs <- temp3[testResult==T, id]
-trial[id %in% posIDs, testResult:=1]
-## trial[testResult==1,.(id, firstDetectableBlood, lastDetectableBlood)]
-
-##############
+  
+  trial$testResult <- 0
+  trial<-as.data.table(trial)
+  temp <- trial[status==1, .(id, status, firstDetectableBlood, lastDetectableBlood)]
+  temp2 <- temp[rep(1:nrow(temp), each=length(testDates))]
+  temp2$testDate <- rep(testDates, nrow(temp))
+  temp2[,testResult := in_interval(testDate, firstDetectableBlood, lastDetectableBlood)] 
+  temp3 <- temp2[,.(testResult=any(testResult>0)), id]
+  posIDs <- temp3[testResult==T, id]
+  trial[id %in% posIDs, testResult:=1]
+  ## trial[testResult==1,.(id, firstDetectableBlood, lastDetectableBlood)]
+  
+  ##############
   ## OLD
   ## for(ind in 1:nrow(trial)){   #evil for-loop. If any of the test dates lies within the RNA detection days, testResult = 1.
   ##   if(trial[ind,'status'] == 1){
   ##   trial[ind,'testResult']<-ifelse(any(in_interval(testDates,as.numeric(trial[ind,'firstDetectableBlood']),as.numeric(trial[ind,'lastDetectableBlood']))),1,0)
   ##   }else{trial[ind,'testResult'] <- 0}
   ## }
-##############
+  ##############
   #the above uses symptoms only to determine beginning of detection interval. If it's a symptom trial, however, symptoms must be present for testResult=1.
   if(trialType == 'symptomTrial'){
     trial$testResult<-ifelse(trial$testResult == 1 & trial$symptomatic == 1, 1, 0) 
