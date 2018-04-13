@@ -3,7 +3,7 @@ in_interval <- function(x, lower, upper){
 }
 
 
-cycleProbs<-function(parms,mos=19,browse=F) with(parms,{
+cyclePs<-function(parms,mos=19,browse=F) with(parms, {
   if(browse) browser()
   probs<-rep(startPregRate,mos)
   for(i in 2:mos){

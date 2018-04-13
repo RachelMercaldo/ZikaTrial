@@ -5,8 +5,6 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
   
   set.seed(628496)
   
-  probs<-cycleProbs(parms)
-  
   immuneDate = as.Date(startDate) + 30
   
   gsDesArgs = list(k=5, 
