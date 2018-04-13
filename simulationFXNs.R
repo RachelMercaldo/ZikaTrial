@@ -68,13 +68,13 @@ mergeData <- function(trial, paho, parms) with(parms, {
 # head(trial)
 
 #If a CZS trial, this gets conception time by assigning each woman monthly conception 'risk' and simulating time-to-conception
-simPreg <- function(trial,parms, probs = cycleProbs, browse=F) with(parms, {
+simPreg <- function(trial,parms, p = probs, browse=F) with(parms, {
   if(browse) browser()
   if(trialType == 'CZStrial'){
     immuneDate <- as.Date(startDate) + 30
     mos<-as.numeric(as.Date(maxEnddate)-as.Date(startDate))
     mosLengthOut<-mos/28
-    cycleProbs<-probs[1:mosLengthOut]
+    cycleProbs<-p[1:mosLengthOut]
     
     pregTrial<-trial[!duplicated(trial$id),]
     pregTrial<-rep(pregTrial, each =mosLengthOut)
