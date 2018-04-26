@@ -35,7 +35,7 @@ for(reg in 1:(ncol(PAHOdata)-2)){
 
 
 PAHOdata<-select(PAHOdata, -year) #get rid of the extra column for year
-
+PAHOdata$Week<-1:nrow(PAHOdata)
 
 # 8 areas identified by projections within these 4 countries: 'Narino' in Colombia,'Sucumbios' in Ecuador,'Sinaloa' 
 # and 'Tamaulipas' in Mexico, 'Piura','Tumbes','SanMartin' and 'Ucayali' in Peru
@@ -57,24 +57,54 @@ Rates2016<-c(sum(PAHOdata16$Colombia),
 # PRF is the scale to multiply 2016 Andersen data to represent the projected incidence rate while 
 # maintaining seasonal variation seen country-wide in the first wave of the epidemic
 PRF <- ExpectedRates/Rates2016 
-PRF2 <- PRF*0.20
+PRF2 <- PRF*0.50
+PRF3 <- PRF*0.25
 
 # Use PRF to scale PAHO data
 # Only 2016 was used to make scale factor, 2016 and 2017 both scaled
 
-paho16<-data.table(Narino = PAHOdata16$Colombia*PRF[1], Sucumbios = PAHOdata16$Ecuador*PRF[2], Sinaloa = PAHOdata16$Mexico*PRF[3], 
-                 Tamaulipas = PAHOdata16$Mexico*PRF[4], Piura = PAHOdata16$Peru*PRF[5], Tumbes = PAHOdata16$Peru*PRF[6], 
-                 SanMartin = PAHOdata16$Peru*PRF[7], Ucayali = PAHOdata16$Peru*PRF[8], date = PAHOdata16$date)
+#total paho scaling by whole PRF:
 
-paho17<-data.table(Narino = PAHOdata17$Colombia*PRF2[1], Sucumbios = PAHOdata17$Ecuador*PRF2[2], Sinaloa = PAHOdata17$Mexico*PRF2[3], 
-                   Tamaulipas = PAHOdata17$Mexico*PRF2[4], Piura = PAHOdata17$Peru*PRF2[5], Tumbes = PAHOdata17$Peru*PRF2[6], 
-                   SanMartin = PAHOdata17$Peru*PRF2[7], Ucayali = PAHOdata17$Peru*PRF2[8], date = PAHOdata17$date)
-paho<-rbind(paho16,paho17)
-paho$Week <- 1:nrow(paho)
+paho<-data.table(Narino = PAHOdata$Colombia*PRF[1], Sucumbios = PAHOdata$Ecuador*PRF[2], Sinaloa = PAHOdata$Mexico*PRF[3], 
+                 Tamaulipas = PAHOdata$Mexico*PRF[4], Piura = PAHOdata$Peru*PRF[5], Tumbes = PAHOdata$Peru*PRF[6], 
+                 SanMartin = PAHOdata$Peru*PRF[7], Ucayali = PAHOdata$Peru*PRF[8], date = PAHOdata$date, Week = PAHOdata$Week)
+
+
+paho16<-data.table(Narino = PAHOdata16$Colombia*PRF[1], Sucumbios = PAHOdata16$Ecuador*PRF[2], Sinaloa = PAHOdata16$Mexico*PRF[3], 
+                   Tamaulipas = PAHOdata16$Mexico*PRF[4], Piura = PAHOdata16$Peru*PRF[5], Tumbes = PAHOdata16$Peru*PRF[6], 
+                   SanMartin = PAHOdata16$Peru*PRF[7], Ucayali = PAHOdata16$Peru*PRF[8], date = PAHOdata16$date, Week = PAHOdata16$Week)
+
+paho17_2<-data.table(Narino = PAHOdata17$Colombia*PRF2[1], Sucumbios = PAHOdata17$Ecuador*PRF2[2], Sinaloa = PAHOdata17$Mexico*PRF2[3], 
+                     Tamaulipas = PAHOdata17$Mexico*PRF2[4], Piura = PAHOdata17$Peru*PRF2[5], Tumbes = PAHOdata17$Peru*PRF2[6], 
+                     SanMartin = PAHOdata17$Peru*PRF2[7], Ucayali = PAHOdata17$Peru*PRF2[8], date = PAHOdata17$date, Week = PAHOdata17$Week)
+
+paho17_3<-data.table(Narino = PAHOdata17$Colombia*PRF3[1], Sucumbios = PAHOdata17$Ecuador*PRF3[2], Sinaloa = PAHOdata17$Mexico*PRF3[3], 
+                     Tamaulipas = PAHOdata17$Mexico*PRF3[4], Piura = PAHOdata17$Peru*PRF3[5], Tumbes = PAHOdata17$Peru*PRF3[6], 
+                     SanMartin = PAHOdata17$Peru*PRF3[7], Ucayali = PAHOdata17$Peru*PRF3[8], date = PAHOdata17$date, Week = PAHOdata17$Week)
+
+paho2<-rbind(paho16,paho17_2)
+paho3<-rbind(paho16, paho17_3)
+
+
+#half and quarter paho rates:
+reduce_rate<-function(x,r){
+  for(i in 1:nrow(x)){
+    x[i,c(1:8)]<-x[i,c(1:8)]*r
+  }
+  x
+}
+
+paho50 <- reduce_rate(paho,.5)
+paho25 <- reduce_rate(paho,.25)
+
+paho50_2 <- reduce_rate(paho2,.5)
+paho25_2 <- reduce_rate(paho2,.25)
+
+paho50_3 <- reduce_rate(paho3,.5)
+paho25_3 <- reduce_rate(paho3,.5)
 
 ##save
-save(paho, file='paho.Rdata')
-
+save(paho, paho2, paho3, paho50, paho25, paho50_2, paho25_2, paho50_3, paho25_3, file='paho.Rdata')
 
 ##visualize
 
@@ -87,5 +117,5 @@ ggplot(pahoDataPlot, aes(x=Week,y=value, group=Countries, color=Countries)) + ge
 #Scaled:
 pahoPlot<-melt.data.table(paho,id.vars = 10, measure.vars = 1:8,variable.name = "Region")
 ggplot(pahoPlot, aes(x=Week, y=value, group=Region, color=Region))+geom_line() + labs(y='Rate') + 
-  theme_classic() + scale_y_continuous(limits = c(0,.01))
+  theme_classic() #+ scale_y_continuous(limits = c(0,.01))
 
