@@ -1,7 +1,6 @@
 #Analysis FXN:
 
-analyzeTrial <- function(parms, browse = F) with(parms, {
-  if(browse) browser()
+analyzeTrial <- function(parms) with(parms, {
   
   set.seed(628496)
   
@@ -155,5 +154,3 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
   
   out
 })
-
-#analyzeTrial(parms) 

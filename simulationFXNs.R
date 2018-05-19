@@ -4,19 +4,25 @@ makeParms <- function(
   trialType = c('CZStrial','infTrial','symptomTrial'),
   regSize = seq(10,1500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
   vaccEff = c(.5,.7,.8,.9), #Vaccine efficacy. 
-  startDate = c('2016-01-03','2016-04-03','2016-04-17', '2016-05-15','2016-06-19','2016-07-03', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'), #startdate of data
+  startDate = c('2016-01-03',
+                '2016-04-10',
+                '2016-05-15',
+                '2016-06-19',
+                '2016-07-17',
+                '2016-08-14',
+                '2016-09-18'), #startdate of data
   symptomRate = 0.225, #Petersen, 2016
   incubK = 3.132, #Lessler
   incubC = 6.632, #Lessler
-  persistBloodK = 2.007, #Lessler
-  persistBloodC = 11.171, #Lessler
+  persistBloodK = 2.007, #Lessler, 2016
+  persistBloodC = 11.171, #Lessler, 2016
   maxEnddate = '2017-05-21', #last week of infection rates
   maxCZSdate = '2018-02-25', #last possible birthdate for women pregnant by maxEndDate.
   testInterval = c(7,14,28), #how many days separate lab tests
-  CZSTrim1 = 0.15, 
-  CZSTrim2 = 0.0227, 
-  CZSTrim3 = 0.0227, 
-  multiCZSrate = 0.21, 
+  CZSTrim1 = 0.15, #Reynolds, 2017
+  CZSTrim2 = 0.0227, #Reynolds, 2017 
+  CZSTrim3 = 0.0227, #Reynolds, 2017
+  multiCZSrate = 0.21, #Reynolds, 2017
   TTC = c(TRUE,FALSE), #If CZS, are women recruited Trying To Conceive (TTC)? If FALSE, assumes 1-contraceptionRate for prevalence of women TTC
   startPregRate = 0.2126546, #Taylor, 2003, estimated 0.3 for first cycle, 0.05 for 12th. alpha = 0.3, beta = 0.861299. Mean of first 6 months for start.
   contraceptionRate = 0.73, #UN 2015, Latin America and the Caribbean data for women 15-49
@@ -24,18 +30,13 @@ makeParms <- function(
   iter = 250 
 ){
   parms <- expand.grid(as.list(environment()))
-  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$TTC == TRUE)),]
   parms<-parms[!(parms$trialType !='infTrial' & (parms$testInterval %in% c(14,28))),]
-  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-03','2016-07-03','2016-04-17', '2016-05-15','2016-06-19', '2016-08-14', '2016-09-18', '2016-10-09', '2016-11-13', '2016-11-27'))),]
+  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-10','2016-05-15','2016-06-19', '2016-07-17','2016-08-14', '2016-09-18'))),]
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$regSize > 1000)),]
 }
 
-# parms<-makeParms()
-# parms<-parms[1,]
-# parms$iter<-50
-# parms
 
-#Make a study population, assign individual risks, and randomize to vaccine or control:
+#create study population, assign individual risks, and randomize to vaccine or control:
 makePop <- function(paho, parms = makeParms()) with(parms, {
   regions<-colnames(paho)
   regions<-regions[1:8]  #get region names from paho data
@@ -45,8 +46,6 @@ makePop <- function(paho, parms = makeParms()) with(parms, {
   trial
 })
 
-# trial<-makePop(paho,parms)
-# head(trial)
 
 #Merge PAHO data:
 #Following this function, each participant will have n rows, with n determined by the number of weeks in the trial (dependent on startDate)
@@ -64,12 +63,9 @@ mergeData <- function(trial, paho, parms) with(parms, {
   trial
 })
 
-# trial<-mergeData(trial,paho,parms)
-# head(trial)
 
 #If a CZS trial, this gets conception time by assigning each woman monthly conception 'risk' and simulating time-to-conception
-simPreg <- function(trial,parms, browse=F) with(parms, {
-  if(browse) browser()
+simPreg <- function(trial,parms) with(parms, {
   if(trialType == 'CZStrial'){
     immuneDate <- as.Date(startDate) + 30
     mos<-as.numeric(as.Date(maxEnddate)-as.Date(startDate))
@@ -102,15 +98,10 @@ simPreg <- function(trial,parms, browse=F) with(parms, {
 })
 
 
-# trial<-simPreg(trial,parms)
-# head(trial)
-
-
-#Simulate infection. Using weekly total risk, simulate time-to-infection. 
-#Following this, individuals infected before the immune date (30 days post start) are removed,
-#  and all remaining individuals have survival times until first week infectTime <= 1, or Inf for those uninfected
-simInf<-function(trial,parms, browse=F) with(parms, { 
-  if(browse) browser()
+#Using weekly total risk, simulate time-to-infection. 
+#Individuals infected before the immune date (30 days post start) are removed, and all remaining 
+#individuals have survival times until first week infectTime <= 1, or Inf for those uninfected
+simInf<-function(trial,parms) with(parms, { 
   immuneDate <- as.Date(startDate) + 30 #assuming 1 month until vaccine is protective
   
   trial<-trial[trial$totalRate != 0,] #removing weeks with rates = 0 to avoid problems with rexp() in next step 
@@ -124,10 +115,11 @@ simInf<-function(trial,parms, browse=F) with(parms, {
   #removes all the weeks prior to immunity and all the participants who were infected before immunity
   
   infected<-trial[trial$infectTime<=1,]
-  infected$dup<-ifelse(duplicated(infected$id),1,0)
-  infected$dup<-as.numeric(infected$dup)
-  dups<-infected[infected$dup==1,]
+  infected$dup<-ifelse(duplicated(infected$id),1,0) #identify multiple infections
+  infected$dup<-as.numeric(infected$dup) 
+  dups<-infected[infected$dup==1,] #pull out participants with multiple infections
   multiInfect<-infected[infected$id %in% dups$id,]
+  
   if(nrow(multiInfect) > 0) multiInfect$dup<-1
   multiInfect$survt<-as.numeric((multiInfect$date-immuneDate) + 7*multiInfect$infectTime)
   
@@ -150,13 +142,9 @@ simInf<-function(trial,parms, browse=F) with(parms, {
   trial
 })
 
-# trial<-simInf(trial,parms)
-# head(trial)
-
 
 #CZS, based on trimester infected. 
-getCZSoutcome <- function(trial,parms,browse=F) with(parms, {
-  if(browse) browser()
+getCZSoutcome <- function(trial,parms) with(parms, {
   if(trialType == 'CZStrial'){
     
     #If conception time is NA, replace with INF, then calculate birthTime and transform to date:
@@ -195,8 +183,6 @@ getCZSoutcome <- function(trial,parms,browse=F) with(parms, {
   trial
 })
 
-# trial<-getCZSoutcome(trial,parms)
-# head(trial)
 
 #get symptomatic cases: generate incubation period and calculate time-to-symptoms
 symptomatic <- function(trial,parms) with(parms, { 
@@ -206,12 +192,9 @@ symptomatic <- function(trial,parms) with(parms, {
   trial
 })
 
-# trial<-symptomatic(trial,parms)
-# head(trial)
 
-#test results for zikv, given viral persistence
-persistence <- function(trial,parms,browse = F) with(parms, {
-  if(browse) browser()
+#test results for zikv, given viral persistence in blood
+persistence <- function(trial,parms) with(parms, {
   Dates <- seq.Date(as.Date(startDate),as.Date(maxEnddate), by = testInterval) #which dates will be lab test dates
   testDates <- list()
   
@@ -231,20 +214,8 @@ persistence <- function(trial,parms,browse = F) with(parms, {
   trial[id %in% posIDs, testResult:=1]
   ## trial[testResult==1,.(id, firstDetectableBlood, lastDetectableBlood)]
   
-  ##############
-  ## OLD
-  ## for(ind in 1:nrow(trial)){   #evil for-loop. If any of the test dates lies within the RNA detection days, testResult = 1.
-  ##   if(trial[ind,'status'] == 1){
-  ##   trial[ind,'testResult']<-ifelse(any(in_interval(testDates,as.numeric(trial[ind,'firstDetectableBlood']),as.numeric(trial[ind,'lastDetectableBlood']))),1,0)
-  ##   }else{trial[ind,'testResult'] <- 0}
-  ## }
-  ##############
-  #the above uses symptoms only to determine beginning of detection interval. If it's a symptom trial, however, symptoms must be present for testResult=1.
   if(trialType == 'symptomTrial'){
     trial$testResult<-ifelse(trial$testResult == 1 & trial$symptomatic == 1, 1, 0) 
   }
   trial
 })
-
-# trial<-persistence(trial,parms)
-# trial[trial$status==1,]   #take a look at everyone infected, regardless of testResult
