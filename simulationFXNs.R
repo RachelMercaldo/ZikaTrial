@@ -2,28 +2,25 @@
 
 makeParms <- function(
   trialType = c('CZStrial','infTrial','symptomTrial'),
-  regSize = seq(10,1500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
-  vaccEff = c(.5,.7,.8,.9), #Vaccine efficacy. 
+  regSize = seq(10,2500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
+  vaccEff = c(.5,.7,.9), #Vaccine efficacy. 
   startDate = c('2016-01-03',
                 '2016-04-10',
-                '2016-05-15',
-                '2016-06-19',
                 '2016-07-17',
-                '2016-08-14',
                 '2016-09-18'), #startdate of data
   symptomRate = 0.225, #Petersen, 2016
   incubK = 3.132, #Lessler
   incubC = 6.632, #Lessler
-  persistBloodK = 2.007, #Lessler, 2016
-  persistBloodC = 11.171, #Lessler, 2016
+  persistBloodK = 2.007, #Lessler
+  persistBloodC = 11.171, #Lessler
   maxEnddate = '2017-05-21', #last week of infection rates
   maxCZSdate = '2018-02-25', #last possible birthdate for women pregnant by maxEndDate.
   testInterval = c(7,14,28), #how many days separate lab tests
-  CZSTrim1 = 0.15, #Reynolds, 2017
-  CZSTrim2 = 0.0227, #Reynolds, 2017 
-  CZSTrim3 = 0.0227, #Reynolds, 2017
-  multiCZSrate = 0.21, #Reynolds, 2017
-  TTC = c(TRUE,FALSE), #If CZS, are women recruited Trying To Conceive (TTC)? If FALSE, assumes 1-contraceptionRate for prevalence of women TTC
+  CZSTrim1 = 0.15, 
+  CZSTrim2 = 0.0227, 
+  CZSTrim3 = 0.0227, 
+  multiCZSrate = 0.21, 
+  TTC = TRUE, #If CZS, are women recruited Trying To Conceive (TTC)? If FALSE, assumes 1-contraceptionRate for prevalence of women TTC
   startPregRate = 0.2126546, #Taylor, 2003, estimated 0.3 for first cycle, 0.05 for 12th. alpha = 0.3, beta = 0.861299. Mean of first 6 months for start.
   contraceptionRate = 0.73, #UN 2015, Latin America and the Caribbean data for women 15-49
   assumedRate = 0.0005, #Assumed rate, for group sequential trial design
@@ -31,7 +28,7 @@ makeParms <- function(
 ){
   parms <- expand.grid(as.list(environment()))
   parms<-parms[!(parms$trialType !='infTrial' & (parms$testInterval %in% c(14,28))),]
-  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-10','2016-05-15','2016-06-19', '2016-07-17','2016-08-14', '2016-09-18'))),]
+  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-10','2016-07-17','2016-09-18'))),]
   parms<-parms[!(parms$trialType != 'CZStrial' & (parms$regSize > 1000)),]
 }
 
@@ -58,8 +55,19 @@ mergeData <- function(trial, paho, parms) with(parms, {
   
   immuneDate = as.Date(startDate) + 30  #assuming 1 month until vaccine is protective
   
+  #For leaky vaccine:
+    
   trial$totalRate<-ifelse(trial$date < as.Date(immuneDate),trial$indRR*trial$regRate,
                           trial$indRR*trial$regRate*ifelse(trial$arm=='vaccine',1-vaccEff,1))
+  
+  #For all-or-nothing vaccine:
+  
+  # xx <- trial[trial$arm== 'vaccine',]
+  # xx <- sample_frac(xx, vaccEff, replace = FALSE)
+  # 
+  # trial$totalRate<-ifelse(trial$date < as.Date(immuneDate),trial$indRR*trial$regRate,
+  #                         trial$indRR*trial$regRate*ifelse(trial$id %in% xx$id,0,1))
+  
   trial
 })
 
@@ -101,11 +109,11 @@ simPreg <- function(trial,parms) with(parms, {
 #Using weekly total risk, simulate time-to-infection. 
 #Individuals infected before the immune date (30 days post start) are removed, and all remaining 
 #individuals have survival times until first week infectTime <= 1, or Inf for those uninfected
-simInf<-function(trial,parms) with(parms, { 
+simInf<-function(trial,parms, browse=F) with(parms, { 
+  if(browse) browser()
   immuneDate <- as.Date(startDate) + 30 #assuming 1 month until vaccine is protective
   
-  trial<-trial[trial$totalRate != 0,] #removing weeks with rates = 0 to avoid problems with rexp() in next step 
-  trial$infectTime<-rexp(nrow(trial),rate=trial$totalRate) 
+  trial$infectTime<-suppressWarnings(ifelse(trial$totalRate == 0, Inf, rexp(nrow(trial),rate=trial$totalRate)))
   
   #identify infections prior to protective immunity.
   preImmune<-trial[trial$date < as.Date(immuneDate),] 
@@ -115,11 +123,10 @@ simInf<-function(trial,parms) with(parms, {
   #removes all the weeks prior to immunity and all the participants who were infected before immunity
   
   infected<-trial[trial$infectTime<=1,]
-  infected$dup<-ifelse(duplicated(infected$id),1,0) #identify multiple infections
-  infected$dup<-as.numeric(infected$dup) 
-  dups<-infected[infected$dup==1,] #pull out participants with multiple infections
+  infected$dup<-ifelse(duplicated(infected$id),1,0)
+  infected$dup<-as.numeric(infected$dup)
+  dups<-infected[infected$dup==1,]
   multiInfect<-infected[infected$id %in% dups$id,]
-  
   if(nrow(multiInfect) > 0) multiInfect$dup<-1
   multiInfect$survt<-as.numeric((multiInfect$date-immuneDate) + 7*multiInfect$infectTime)
   
@@ -138,6 +145,10 @@ simInf<-function(trial,parms) with(parms, {
   trial$survt<-as.numeric(trial$survt)
   
   trial$status <- ifelse(trial$infectTime <= 1, 1, 0)
+  
+  if(trialType != 'CZStrial'){
+    trial<-trial[!duplicated(trial$id),]
+  }
   
   trial
 })
@@ -212,7 +223,6 @@ persistence <- function(trial,parms) with(parms, {
   temp3 <- temp2[,.(testResult=any(testResult>0)), id]
   posIDs <- temp3[testResult==T, id]
   trial[id %in% posIDs, testResult:=1]
-  ## trial[testResult==1,.(id, firstDetectableBlood, lastDetectableBlood)]
   
   if(trialType == 'symptomTrial'){
     trial$testResult<-ifelse(trial$testResult == 1 & trial$symptomatic == 1, 1, 0) 
