@@ -48,6 +48,12 @@ makePop <- function(paho, parms = makeParms()) with(parms, {
 #Following this function, each participant will have n rows, with n determined by the number of weeks in the trial (dependent on startDate)
 #For each week, the participant is assigned a risk (totalRate) that is the product of their individual risk and their regional risk that week
 mergeData <- function(trial, paho, parms) with(parms, {
+  
+  #For all-or-nothing vaccine:
+  
+  # xx <- trial[trial$arm== 'vaccine',]
+  # xx <- sample_frac(xx, parms$vaccEff, replace = FALSE)
+  
   trial<-rep(trial,each=nrow(paho))
   paho<-rep(paho,regSize)
   paho<-gather(paho,'region','regRate',c(1:8))
@@ -61,10 +67,7 @@ mergeData <- function(trial, paho, parms) with(parms, {
                           trial$indRR*trial$regRate*ifelse(trial$arm=='vaccine',1-vaccEff,1))
   
   #For all-or-nothing vaccine:
-  
-  # xx <- trial[trial$arm== 'vaccine',]
-  # xx <- sample_frac(xx, vaccEff, replace = FALSE)
-  # 
+
   # trial$totalRate<-ifelse(trial$date < as.Date(immuneDate),trial$indRR*trial$regRate,
   #                         trial$indRR*trial$regRate*ifelse(trial$id %in% xx$id,0,1))
   
