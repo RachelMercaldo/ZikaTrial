@@ -1,0 +1,179 @@
+---
+title: "Tablesand plots"
+output: html_document
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+rm(list = ls())
+
+library(tidyverse)
+library(extrafont)
+library(ggpubr)
+library(kableExtra)
+
+loadfonts(device = "win")
+```
+
+```{r, message = FALSE, warning = FALSE}
+temp = list.files(pattern="*.csv") #all result .csv files in current directory
+tbl = lapply(temp, read_csv) %>% bind_rows() #make them a tbl
+str(tbl)
+```
+
+### Data processing:
+
+```{r, echo = FALSE}
+tbl <- tbl[,c(2:5,13,18,23:29)] #pull out trial scenario identifiers and results. 
+                                #note that no CZS trials in this data are TTC = FALSE
+                                
+tbl$N <- tbl$regSize*8 #8 regions at each regSize, total population 8*regsize
+
+tbl <- tbl[tbl$'vaccEff' != .8,] #Several simulations for addition assumed efficacy 80% removed
+
+tbl <- tbl[tbl$startDate %in% as.Date(c('2016-01-03',
+                                        '2016-04-10',
+                                        '2016-07-17',
+                                        '2016-09-18')),] 
+
+names(tbl)[names(tbl) == 'vaccEff'] <- 'Assumed Vaccine Efficacy'
+names(tbl)[names(tbl) == 'startDate'] <- 'Start Date'
+
+```
+
+```{r, echo = FALSE}
+#turn trialType into categories for easier ggplotting:
+
+tbl$cat<-NA 
+tbl$cat[tbl$trialType == 'infTrial' & tbl$testInterval == 7] <- 1
+tbl$cat[tbl$trialType == 'infTrial' & tbl$testInterval == 14] <- 2
+tbl$cat[tbl$trialType == 'infTrial' & tbl$testInterval == 28] <- 3
+tbl$cat[tbl$trialType == 'symptomTrial'] <- 4
+tbl$cat[tbl$trialType=='CZStrial' & tbl$`Start Date` == '2016-01-03'] <- 5
+tbl$cat[tbl$trialType=='CZStrial' & tbl$`Start Date` == '2016-04-10'] <- 6
+tbl$cat[tbl$trialType=='CZStrial' & tbl$`Start Date` == '2016-07-17'] <- 7
+tbl$cat[tbl$trialType=='CZStrial' & tbl$`Start Date` == '2016-09-18'] <- 8
+
+tbl$cat <- factor(tbl$cat, levels = c(1:8), labels = c('Infection, Weekly Testing',
+                                                       'Infection, Biweekly Testing',
+                                                       'Infection, Monthly Testing',
+                                                       'Symptomatic ZVD',
+                                                       'CZS, Trial Start Week 1',
+                                                       'CZS, Trial Start Week 15',
+                                                       'CZS, Trial Start Week 29',
+                                                       'CZS, Trial Start Week 38'))
+
+tbl$`Assumed Vaccine Efficacy` <- factor(tbl$`Assumed Vaccine Efficacy`, 
+                                         levels = c(0.5,0.7,0.9),
+                                         labels = c('50%','70%','90%'))
+
+tbl$`Mean Trial Duration` <- as.numeric(as.Date(tbl$meanDate)-as.Date(tbl$`Start Date`))
+```
+```{r, echo = FALSE}
+#new tbl for trials that reached at least 80% power:
+tbl80<-tbl[tbl$power >= 0.8,]
+```
+
+## Plots
+
+### Power:
+
+```{r, warning = FALSE}
+fig2<-ggplot(tbl, aes(x=N, y=power, fill = cat, color = cat)) + 
+  facet_wrap(~`Assumed Vaccine Efficacy`, ncol = 1, strip.position = "top", labeller = label_both)+
+  geom_smooth(method='loess',span = 0.1, size = 1.5) + geom_point()+
+  scale_y_continuous(limits = c(0,1.1), breaks = seq(0 , 1, .2)) +
+  scale_x_continuous(breaks = seq(0, 20000, 500)) +
+  theme_classic() + theme(axis.text.x = element_text(angle=60, vjust = .95, hjust = 1)) +
+  geom_hline(yintercept = .80,linetype = 'dashed') 
+
+fig2<-ggpar(fig2,
+              title = 'Power by Trial Sample Size',
+              palette = "lancet",
+              xlab ="N", ylab = "Power",
+              font.title = c(14, "bold"),
+              font.subtitle = c(10, "bold"),
+              legend = "right", legend.title = "Trial Scenario") + 
+  font("legend.title", color = "black", face = "bold") + 
+  font("legend.text", color = "black")
+
+fig2
+```
+
+### Duration: 
+
+```{r, warning = FALSE}
+#all trials:
+# fig3a<-ggplot(tbl, aes(x=N, y=`Mean Trial Duration`, fill = cat, color = cat)) + 
+#   facet_wrap(~`Assumed Vaccine Efficacy`, ncol = 1, strip.position = "top", labeller = label_both)+
+#   geom_line() + geom_point()+
+#   scale_x_continuous(breaks = seq(0, 20000, 500)) +
+#   theme_classic() + theme(axis.text.x = element_text(angle=60, vjust = .95, hjust = 1)) 
+# 
+# fig3a<-ggpar(fig3a,
+#              title = 'Trial Duration by Sample Size',
+#              palette = "lancet",
+#              xlab ="N", ylab = "Trial Duration (days)",
+#              font.title = c(14, "bold"),
+#              font.subtitle = c(10, "bold"),
+#              legend = "right", legend.title = "Trial Scenario") + 
+#   font("legend.title", color = "black", face = "bold") + 
+#   font("legend.text", color = "black")
+# 
+# fig3a
+
+#with trials reaching 80% power:
+fig3b<-ggplot(tbl80, aes(x=N, y=`Mean Trial Duration`, fill = cat, color = cat)) + 
+  facet_wrap(~`Assumed Vaccine Efficacy`, ncol = 1, strip.position = "top", labeller = label_both)+
+  geom_line() + geom_point()+
+  scale_x_continuous(breaks = seq(0, 20000, 500)) +
+  theme_classic() + theme(axis.text.x = element_text(angle=60, vjust = .95, hjust = 1)) 
+
+fig3b<-ggpar(fig3b,
+             title = 'Trial Duration by Sample Size',
+             subtitle = 'Trials with 80% power',
+             palette = "lancet",
+             xlab ="N", ylab = "Trial Duration (days)",
+             font.title = c(14, "bold"),
+             font.subtitle = c(10, "bold"),
+             legend = "right", legend.title = "Trial Scenario") + 
+  font("legend.title", color = "black", face = "bold") + 
+  font("legend.text", color = "black")
+
+
+fig3b
+```
+
+## Tables
+
+```{r, warning = FALSE}
+trials<-unique(tbl80$cat)
+effs<-c('50%','70%','90%')
+scenarios<-expand.grid(`Trial Scenario` = trials, eff = effs)
+scenarios$N<-NA
+scenarios$dur<-NA
+
+
+for(i in 1:nrow(scenarios)){
+  tbls<-tbl80[tbl80$cat == scenarios[i,1],]
+  tbls<-tbls[tbls$`Assumed Vaccine Efficacy` == scenarios[i,2],]
+  
+  scenarios[i,3]<-min(tbls$N)
+  if(min(tbls$N) != Inf){
+    scenarios[i,4]<-tbls$`Mean Trial Duration`[tbls$N == min(tbls$N)]
+  }
+}
+
+scenarios <- unite(scenarios, combo, N, dur, sep = ", ") %>% spread(eff, combo)
+scenarios <- separate(scenarios, `50%`, c('N', 'Duration'), sep = ", ")
+scenarios <- separate(scenarios, `70%`, c('N ', 'Duration '), sep = ", ")
+scenarios <- separate(scenarios, `90%`, c('N  ', 'Duration  '), sep = ", ")
+scenarios <- as.data.frame(scenarios)
+```
+
+
+```{r}
+ kable(scenarios) %>%
+   kable_styling("striped",full_width = T) %>%
+   add_header_above(c(" " = 1, "Assumed Efficacy: 50%" = 2, "Assumed Efficacy: 70%" = 2, "Assumed Efficacy: 90%" = 2))
+```
+

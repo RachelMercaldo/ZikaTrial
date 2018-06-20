@@ -1,0 +1,34 @@
+---
+title: "Readme"
+output: html_document
+---
+
+##ZikaTrial Repository Contents:
+
+
+###PAHO and projections
+
+*PAHO.R*:  Download Andersen lab PAHO data, clean, and scale to ZIKVAT 2017 projections. Visualize.
+
+*paho.Rdata*:  PAHO data objects generated in *PAHO.R*
+
+
+###Simulations and trial analysis
+These files sourced in *run.R*, below.
+
+*simulationFXNs.R*:  Trial simulation functions to create population and generate outcomes. 
+
+*helperFXNs.R*:  Functions used within *simulationFXNs.R*
+
+*analyzeFXN.R*:  Function to analyze trial data. Output is mean/median cases in control and vaccination arms, power, and mean and median trial end dates to calculate trial duration.
+
+
+###Parallel processing 
+
+*run.R*:  Initiates cluster for HPC, iterates through parameter sets/trial scenarios, writes results to .csv file. 
+
+
+###Results
+
+*TablesPlots.Rmd*:  Code for power-by-population and duration-by-population figures and population/duration tables.
+
