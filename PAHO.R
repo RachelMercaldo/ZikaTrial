@@ -6,9 +6,9 @@ library(scales)
 
 # Obtain digitized PAHO Zika case numbers, by epidemiological week, from Andersen Github repo:
 
-fileURLs<-c("https://raw.githubusercontent.com/andersen-lab/Zika-cases-PAHO/master/caribbean.csv",
-            "https://raw.githubusercontent.com/andersen-lab/Zika-cases-PAHO/master/central_america.csv",
-            "https://raw.githubusercontent.com/andersen-lab/Zika-cases-PAHO/master/south_america.csv")
+fileURLs<-c("https://raw.githubusercontent.com/andersen-lab/zika-epidemiology/master/paho_case_numbers/caribbean.csv",
+            "https://raw.githubusercontent.com/andersen-lab/zika-epidemiology/master/paho_case_numbers/central_america.csv",
+            "https://raw.githubusercontent.com/andersen-lab/zika-epidemiology/master/paho_case_numbers/south_america.csv")
 PAHOdata <- as.data.frame(unlist(lapply(fileURLs,fread), recursive=FALSE)) 
 
 # selecting from PAHOdata the 4 best places to be to get Zika, based on projection. 
@@ -42,66 +42,48 @@ PAHOdata$Week<-1:nrow(PAHOdata)
 
 #Only 2016 rates (first 52 weeks of data):
 PAHOdata16<-PAHOdata[1:52,]
-PAHOdata17<-PAHOdata[53:73,]
-ExpectedRates<-c(0.005, 0.0755, 0.0244, 0.0028, 0.071, 0.0631, 0.001, 0.0006) #ZIKAVAT collaboration projected median rate for 2017
+PAHOdata17<-PAHOdata[53:82,]
 
 Rates2016<-c(sum(PAHOdata16$Colombia), 
              sum(PAHOdata16$Ecuador),
              sum(PAHOdata16$Mexico),
-             sum(PAHOdata16$Mexico),
-             sum(PAHOdata16$Peru),
-             sum(PAHOdata16$Peru),
-             sum(PAHOdata16$Peru),
              sum(PAHOdata16$Peru))
+
+Rates2017<-c(sum(PAHOdata17$Colombia),
+             sum(PAHOdata17$Ecuador),
+             sum(PAHOdata17$Mexico),
+             sum(PAHOdata17$Peru))
 
 # PRF is the scale to multiply 2016 Andersen data to represent the projected incidence rate while 
 # maintaining seasonal variation seen country-wide in the first wave of the epidemic
-PRF <- ExpectedRates/Rates2016 
-PRF2 <- PRF*0.50
-PRF3 <- PRF*0.25
+PRF16 <- 0.01/Rates2016 
+PRF17 <- (0.01*(nrow(PAHOdata17)/52))/Rates2017
 
+
+paho16<-data.table(Colombia = PAHOdata16$Colombia*PRF16[1], Ecuador = PAHOdata16$Ecuador*PRF16[2],
+                   Mexico = PAHOdata16$Mexico*PRF16[3], Peru = PAHOdata16$Peru*PRF16[4])
+
+paho17<-data.table(Colombia = PAHOdata17$Colombia*PRF17[1], Ecuador = PAHOdata17$Ecuador*PRF17[2],
+                   Mexico = PAHOdata17$Mexico*PRF17[3], Peru = PAHOdata17$Peru*PRF17[4])
 # Use PRF to scale PAHO data
 # Only 2016 was used to make scale factor, 2016 and 2017 both scaled
 
-paho<-data.table(Narino = PAHOdata$Colombia*PRF[1], Sucumbios = PAHOdata$Ecuador*PRF[2], Sinaloa = PAHOdata$Mexico*PRF[3], 
-                 Tamaulipas = PAHOdata$Mexico*PRF[4], Piura = PAHOdata$Peru*PRF[5], Tumbes = PAHOdata$Peru*PRF[6], 
-                 SanMartin = PAHOdata$Peru*PRF[7], Ucayali = PAHOdata$Peru*PRF[8], date = PAHOdata$date, Week = PAHOdata$Week)
 
+paho<-rbind(paho16,paho17)
+paho$date <- PAHOdata[1:82,'date']
+paho$week <- 1:nrow(paho)
 
-paho16<-data.table(Narino = PAHOdata16$Colombia*PRF[1], Sucumbios = PAHOdata16$Ecuador*PRF[2], Sinaloa = PAHOdata16$Mexico*PRF[3], 
-                   Tamaulipas = PAHOdata16$Mexico*PRF[4], Piura = PAHOdata16$Peru*PRF[5], Tumbes = PAHOdata16$Peru*PRF[6], 
-                   SanMartin = PAHOdata16$Peru*PRF[7], Ucayali = PAHOdata16$Peru*PRF[8], date = PAHOdata16$date, Week = PAHOdata16$Week)
-
-paho17_2<-data.table(Narino = PAHOdata17$Colombia*PRF2[1], Sucumbios = PAHOdata17$Ecuador*PRF2[2], Sinaloa = PAHOdata17$Mexico*PRF2[3], 
-                     Tamaulipas = PAHOdata17$Mexico*PRF2[4], Piura = PAHOdata17$Peru*PRF2[5], Tumbes = PAHOdata17$Peru*PRF2[6], 
-                     SanMartin = PAHOdata17$Peru*PRF2[7], Ucayali = PAHOdata17$Peru*PRF2[8], date = PAHOdata17$date, Week = PAHOdata17$Week)
-
-paho2<-rbind(paho16,paho17_2)
-
-
-#function to reduce rates if further reductions used in future:
-reduce_rate<-function(x,r){
-  for(i in 1:nrow(x)){
-    x[i,c(1:8)]<-x[i,c(1:8)]*r
-  }
-  x
-}
-
-paho50 <- reduce_rate(paho,.5)
-
-##save
-save(paho, paho2, paho50, file='paho.Rdata')
+save(paho, file = 'paho.Rdata')
 
 ##visualize (shown for only paho, not paho2 or paho50)
 
 #Original:
-PAHOdata$Week<-1:nrow(PAHOdata)
 pahoDataPlot<-melt.data.table(as.data.table(PAHOdata), id.vars = 6, measure.vars = 1:4, variable.name = 'Countries')
 ggplot(pahoDataPlot, aes(x=Week,y=value, group=Countries, color=Countries)) + geom_line() + labs(y='Rate') + 
   theme_classic() + scale_y_continuous(labels = comma)
 
 #Scaled:
-pahoPlot<-melt.data.table(paho,id.vars = 10, measure.vars = 1:8,variable.name = "Region")
-ggplot(pahoPlot, aes(x=Week, y=value, group=Region, color=Region))+geom_line() + labs(y='Rate') + 
+pahoPlot<-melt.data.table(paho,id.vars = 6, measure.vars = 1:4,variable.name = "Country")
+ggplot(pahoPlot, aes(x=week, y=value, group=Country, color=Country))+geom_line() + labs(x = 'Week', y = 'Rate') + 
   theme_classic() 
 
