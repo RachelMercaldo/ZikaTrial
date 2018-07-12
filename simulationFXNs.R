@@ -2,18 +2,18 @@
 
 makeParms <- function(
   trialType = c('CZStrial','infTrial','symptomTrial'),
-  regSize = seq(10,2500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
+  regSize = seq(25,7500, by = 5), #regSize = pop size for one region. 8 regions means total of 8*regSize trial participants
   vaccEff = c(.5,.7,.9), #Vaccine efficacy. 
   startDate = c('2016-01-03',
                 '2016-04-10',
-                '2016-07-17',
+                '2016-07-10',
                 '2016-09-18'), #startdate of data
   symptomRate = 0.225, #Petersen, 2016
   incubK = 3.132, #Lessler
   incubC = 6.632, #Lessler
   persistBloodK = 2.007, #Lessler
   persistBloodC = 11.171, #Lessler
-  maxEnddate = '2017-05-21', #last week of infection rates
+  maxEnddate = '2017-07-23', #last week of infection rates
   maxCZSdate = '2018-02-25', #last possible birthdate for women pregnant by maxEndDate.
   testInterval = c(7,14,28), #how many days separate lab tests
   CZSTrim1 = 0.15, 
@@ -28,15 +28,15 @@ makeParms <- function(
 ){
   parms <- expand.grid(as.list(environment()))
   parms<-parms[!(parms$trialType !='infTrial' & (parms$testInterval %in% c(14,28))),]
-  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-10','2016-07-17','2016-09-18'))),]
-  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$regSize > 1000)),]
+  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$startDate %in% c('2016-04-10','2016-07-10','2016-09-18'))),]
+  parms<-parms[!(parms$trialType != 'CZStrial' & (parms$regSize > 5000)),]
 }
 
 
 #create study population, assign individual risks, and randomize to vaccine or control:
 makePop <- function(paho, parms = makeParms()) with(parms, {
   regions<-colnames(paho)
-  regions<-regions[1:8]  #get region names from paho data
+  regions<-regions[1:6]  #get region names from paho data
   trial<-data.table(id = paste(substr(rep(regions,each=regSize),1,2),1:regSize,sep=''))  #assign unique IDs based on region
   trial$indRR <- rlnorm(nrow(trial),0,1)    #give everyone an individual risk  
   trial$arm <- sample(c('vaccine','control'), nrow(trial), replace = TRUE, prob = c(0.5,0.5)) #randomize to vaccine or control arm. 
@@ -56,7 +56,7 @@ mergeData <- function(trial, paho, parms) with(parms, {
   
   trial<-rep(trial,each=nrow(paho))
   paho<-rep(paho,regSize)
-  paho<-gather(paho,'region','regRate',c(1:8))
+  paho<-gather(paho,'region','regRate',c(1:6))
   trial<-cbind(trial,paho)
   
   immuneDate = as.Date(startDate) + 30  #assuming 1 month until vaccine is protective
@@ -80,7 +80,7 @@ simPreg <- function(trial,parms) with(parms, {
   if(trialType == 'CZStrial'){
     immuneDate <- as.Date(startDate) + 30
     mos<-as.numeric(as.Date(maxEnddate)-as.Date(startDate))
-    mosLengthOut<-mos/28
+    parms$mosLengthOut<-mos/28
     p<-cyclePs(parms)
     cycleProbs<-p[1:mosLengthOut]
     
@@ -232,3 +232,4 @@ persistence <- function(trial,parms) with(parms, {
   }
   trial
 })
+

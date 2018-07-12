@@ -1,7 +1,7 @@
 #Analysis FXN:
 
-analyzeTrial <- function(parms) with(parms, {
-  
+analyzeTrial <- function(parms, browse = F) with(parms, {
+  if(browse) browser()
   set.seed(628496)
   
   immuneDate = as.Date(startDate) + 30
