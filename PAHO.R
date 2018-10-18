@@ -78,5 +78,4 @@ save(paho, file = 'paho.Rdata')
 #Scaled:
 pahoPlot<-melt.data.table(paho,id.vars = 8, measure.vars = 1:6,variable.name = "Country")
 ggplot(pahoPlot, aes(x=week, y=value, group=Country, color=Country))+geom_line(size = 1) + labs(x = 'Week', y = 'Rate') + 
-  theme_classic() 
-
+   theme_classic() 

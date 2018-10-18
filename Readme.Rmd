@@ -3,6 +3,15 @@ title: "Readme"
 output: html_document
 ---
 
+This repository contains code to accompany:
+
+Rachel A. Mercaldo, Steven E. Bellan; Evaluation of Alternative Endpoints for ZIKV Vaccine Trials (In submission); 2018
+
+##Introduction:
+
+*run.R* runs simulation and analysis functions found in *simulationFXNs.R* and *analyzeFXN.R* over sets of trial scenario parameters. Additional notes on these functions are below. These functions also rely on *paho.Rdata*. This data object is created by the *PAHO.R* script.
+
+
 ##ZikaTrial Repository Contents:
 
 
@@ -18,8 +27,6 @@ These files sourced in *run.R*, below.
 
 *simulationFXNs.R*:  Trial simulation functions to create population and generate outcomes. 
 
-*helperFXNs.R*:  Functions used within *simulationFXNs.R*
-
 *analyzeFXN.R*:  Function to analyze trial data. Output is mean/median cases in control and vaccination arms, power, and mean and median trial end dates to calculate trial duration.
 
 
@@ -32,3 +39,57 @@ These files sourced in *run.R*, below.
 
 *TablesPlots.Rmd*:  Code for power-by-population and duration-by-population figures and population/duration tables.
 
+
+##Simulation information:
+
+*simulationFXNs.R* contains 11 functions to simulate trial scenarios. The functions are:
+
+makeParms() :  creates a table of all possible combinations of trial parameters, which are given as arguments to the function.
+
+nestPaho() and makePop(): randomly samples 4 of the 6 countries and creates trial populations for each. The start date of each trial is determined by the starting rule and country combination. Each participant receives a constant individual-level risk factor. Each is randomized to vaccine or control arms. 
+
+mergeData() : unnests the country-specific data frames and merges them with scaled weekly infection risks from *paho.Rdata*. Each individual's constant risk factor is multiplied by the weekly infection risk in their country. 
+
+simPreg() : using cyclePs() helper function, generate time-to-pregnancy in CZS trials. This function is skipped in infection- and ZVD-based endpoint scenarios. 
+Conception parameters: The probability of conception is greatest in the first cycle a woman is sexually active; 30% of women will conceive in the first month (Taylor, 2003). This probability decays for each subsequent cycle, to approximately 5% after the first year and 1% after the second year (Taylor, 2003). We assumed women entered the trial one to six months after first beginning attempts to conceive.
+The rate of exponential decay in conception probability was derived from 30% initial probability (a = 0.30) and 5% after the 12th month.
+The first 6 months of probabilities were averaged to account for differences in the number of cycles in which women attempted to conceive before entering the trial. From this average (approximately 0.213), conception probability decreased by 0.1387x the previous month's probability, until the final month of the trial.
+
+
+simInf() : generates time-to-infection for each individual from the weekly overall risk (multiple of individual risk factor and weekly country risk). If the time to infection is within a week, the infection is recorded. Otherwise, the individual is considered uninfected. This continues until the individual is infected or until the end of the trial. The output of this function is a list: one dataframe with all participants who remain in the trial, and a second dataframe with the individuals who are removed from the trial after being infected before vaccine immunity sets in.
+
+getCZSoutcome() : based on time-to-pregnancy and time-to-infection, assigns CZS risk based on trimester of infection and generates CZS outcome from binomial distribution.
+
+symptomatic() : symptomatic disease is modeled from the binomial distribution for all infected participants. Time until symptoms was generated using the Weibull distribution. Parameters for incubation period were median and first and third quartiles available from Lessler, et al. 2016. Conversion of summary incubation statistics to Weibull distribution parameters used the method of Justus, 1977: 
+
+k = ln[ln(0.25)/ln(0.75)]/ln(third quartile/first quartile) 
+k = 3.132
+c = median/ln(2)*exp(1/k)
+c = 6.632
+
+```{r, echo = F}
+set.seed(628496)
+x<-seq(0,15, by = 0.01)
+plot(x,dweibull(x,3.132,6.632), main = "ZIKV Incubation Period Distribution", xlab = "Days", ylab = "Density")
+```
+
+persistence() : using in_interval() helper function, creates set of testing days weekly, biweekly, or monthly from trial start date. This function also generates time to first detectable sample of ZIKV RNA in blood, and time to last detectable sample, from the Weibull distribution. Parameters for persistence of viremia were mean and first and third quartiles available from Lessler, et al. 2016. Conversion of summary persistence statistics to Weibull distribution parameters used the method of Justus, 1977:
+
+k = ln[ln(0.25)/ln(0.75)]/ln(third quartile/first quartile) 
+k = 2.007
+c = mean/gamma(1 + 1/k)
+c = 11.171
+
+```{r, echo = F}
+set.seed(628496)
+y<-seq(0,30, by = 0.01)
+plot(y,dweibull(y,2.007,11.171), main = "ZIKV Persistence (in blood) Distribution", xlab = "Days", ylab = "Density")
+```
+##References:
+
+Taylor A. Extent of the problem. BMJ 2003;327:434. doi:10.1136/bmj.327.7412.434.
+
+Lessler J, Ott CT, Carcelen AC, Konikoff JM, Williamson J, Bi Q, et al. Times to Key Events in the Course of Zika Infection and their Implications for Surveillance: A Systematic Review and Pooled Analysis. Igarss 2014 2016. doi:10.1101/041913.
+
+Justus CG, Hargraves WR, Mikhail A, Graber D. Methods for Estimating Wind Speed Frequency Distributions. Journal of Applied Meteorology 1977; 350:353.
+doi:10.1175/1520-0450(1978)017<0350:MFEWSF>2.0.CO;2

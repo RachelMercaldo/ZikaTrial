@@ -12,15 +12,14 @@ library(survival)
 ### Calculate number of cores:
 
 no_cores <- #
-
-### Initiate cluster:
-
-cl <- makeCluster(no_cores)
+   
+   ### Initiate cluster:
+   
+   cl <- makeCluster(no_cores)
 registerDoParallel(cl)
 
 clusterEvalQ(cl, c(library(tidyverse), library(data.table), library(mefa), library(gsDesign), library(survival)))
 
-source('helperFXNs.R')
 source('simulationFXNs.R')
 source('analyzeFXN.R')
 
