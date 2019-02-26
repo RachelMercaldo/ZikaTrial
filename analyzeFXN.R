@@ -1,4 +1,12 @@
-#Analysis FXN:
+##Analysis FXN
+## Overall function to run simulation fxns and analyze trial data
+################################################################
+## Code accompanies:
+## 
+## Mercaldo, RA, Bellan, SE. Evaluation of Alternative Endpoints for Zika Virus Vaccine Efficacy Trials. 2019.
+##
+## Rachel Mercaldo, 2019
+## License at bottom.
 
 analyzeTrial <- function(parms, browse = F) with(parms, {
    if(browse) browser()
@@ -192,3 +200,16 @@ analyzeTrial <- function(parms, browse = F) with(parms, {
    
    out
 })
+
+
+## LICENSE
+##
+## This code is made available under a Creative Commons Attribution 4.0
+## International License. You are free to reuse this code provided that you
+## give appropriate credit, provide a link to the license, and indicate if
+## changes were made.
+## You may do so in any reasonable manner, but not in any way that suggests
+## the licensor endorses you or your use. Giving appropriate credit includes
+## citation of the above publication *and* providing a link to this repository:
+##
+## https://github.com/RachelMercaldo/ZikaTrial

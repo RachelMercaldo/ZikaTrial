@@ -1,3 +1,12 @@
+## Code to download and process PAHO data
+################################################################
+## Code accompanies:
+## 
+## Mercaldo, RA, Bellan, SE. Evaluation of Alternative Endpoints for Zika Virus Vaccine Efficacy Trials. 2019.
+##
+## Rachel Mercaldo, 2019
+## License at bottom.
+
 library(tidyverse)
 library(data.table)
 library(mefa)
@@ -79,3 +88,15 @@ save(paho, file = 'paho.Rdata')
 pahoPlot<-melt.data.table(paho,id.vars = 8, measure.vars = 1:6,variable.name = "Country")
 ggplot(pahoPlot, aes(x=week, y=value, group=Country, color=Country))+geom_line(size = 1) + labs(x = 'Week', y = 'Rate') + 
    theme_classic() 
+
+## LICENSE
+##
+## This code is made available under a Creative Commons Attribution 4.0
+## International License. You are free to reuse this code provided that you
+## give appropriate credit, provide a link to the license, and indicate if
+## changes were made.
+## You may do so in any reasonable manner, but not in any way that suggests
+## the licensor endorses you or your use. Giving appropriate credit includes
+## citation of the above publication *and* providing a link to this repository:
+##
+## https://github.com/RachelMercaldo/ZikaTrial

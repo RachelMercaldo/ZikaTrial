@@ -2,6 +2,15 @@
 title: "Tables and plots"
 output: html_document
 ---
+Code to generate tables and figures.
+
+Code accompanies:
+
+Mercaldo, RA, Bellan, SE. Evaluation of Alternative Endpoints for Zika Virus Vaccine Efficacy Trials. 2019.
+
+Rachel Mercaldo, 2019
+
+License at bottom.
 
 ```{r}
 rm(list = ls())
@@ -282,3 +291,10 @@ kable(scenarios, align = c('l',rep('c',6)), escape = F) %>%
    row_spec(1:7,color = 'black') #%>%
 #save_kable(file = "table2.html", self_contained = T)
 ```
+
+
+##LICENSE
+
+This code is made available under a Creative Commons Attribution 4.0 International License. You are free to reuse this code provided that you give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use. Giving appropriate credit includes citation of the above publication *and* providing a link to this repository:
+
+https://github.com/RachelMercaldo/ZikaTrial
