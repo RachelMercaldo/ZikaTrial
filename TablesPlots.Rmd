@@ -76,7 +76,7 @@ tbl80<-tbl[tbl$power >= 0.8,]
 
 ```{r, echo = FALSE, warning = FALSE}
 load('paho.Rdata')
-colnames(paho)[2]<- "Costa Rica" #get rid of unsightly (.)
+colnames(paho)[2]<- "Costa Rica" #get rid of unsightly "."
 paho<-cbind(paho[,8],paho[,1:6])
 pahoPlot<-melt.data.table(paho,id.vars = 1, measure.vars = 2:7,variable.name = "Country")
 

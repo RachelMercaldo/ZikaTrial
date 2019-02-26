@@ -21,7 +21,7 @@ License at bottom.
 
 ###PAHO and projections
 
-*PAHO.R*:  Download Andersen lab PAHO data, clean, and scale to ZIKVAT 2017 projections. Visualize.
+*PAHO.R*:  Download Andersen lab PAHO data, clean, and scale. Visualize.
 
 *paho.Rdata*:  PAHO data objects generated in *PAHO.R*
 
@@ -48,23 +48,23 @@ These files sourced in *run.R*, below.
 
 *simulationFXNs.R* contains 11 functions to simulate trial scenarios. The functions are:
 
-makeParms() :  creates a table of all possible combinations of trial parameters, which are given as arguments to the function.
+_makeParms()_ :  creates a table of all possible combinations of trial parameters, which are given as arguments to the function.
 
-nestPaho() and makePop(): randomly samples 4 of the 6 countries and creates trial populations for each. The start date of each trial is determined by the starting rule and country combination. Each participant receives a constant individual-level risk factor. Each is randomized to vaccine or control arms. 
+_nestPaho()_ and makePop(): randomly samples 4 of the 6 countries and creates trial populations for each. The start date of each trial is determined by the starting rule and country combination. Each participant receives a constant individual-level risk factor. Each is randomized to vaccine or control arms. 
 
-mergeData() : unnests the country-specific data frames and merges them with scaled weekly infection risks from *paho.Rdata*. Each individual's constant risk factor is multiplied by the weekly infection risk in their country. 
+_mergeData()_ : unnests the country-specific data frames and merges them with scaled weekly infection risks from *paho.Rdata*. Each individual's constant risk factor is multiplied by the weekly infection risk in their country. 
 
-simPreg() : using cyclePs() helper function, generate time-to-pregnancy in CZS trials. This function is skipped in infection- and ZVD-based endpoint scenarios. 
+_simPreg()_ : using cyclePs() helper function, generate time-to-pregnancy in CZS trials. This function is skipped in infection- and ZVD-based endpoint scenarios. 
 Conception parameters: The probability of conception is greatest in the first cycle a woman is sexually active; 30% of women will conceive in the first month (Taylor, 2003). This probability decays for each subsequent cycle, to approximately 5% after the first year and 1% after the second year (Taylor, 2003). We assumed women entered the trial one to six months after first beginning attempts to conceive.
 The rate of exponential decay in conception probability was derived from 30% initial probability (a = 0.30) and 5% after the 12th month.
-The first 6 months of probabilities were averaged to account for differences in the number of cycles in which women attempted to conceive before entering the trial. From this average (approximately 0.213), conception probability decreased by 0.1387x the previous month's probability, until the final month of the trial.
+The first 6 months of probabilities were averaged to account for differences in the number of cycles in which women attempted to conceive before entering the trial. From this average (approximately 0.213), conception probability decreased by 0.1503x the previous month's probability, until the final month of the trial.
 
 
-simInf() : generates time-to-infection for each individual from the weekly overall risk (multiple of individual risk factor and weekly country risk). If the time to infection is within a week, the infection is recorded. Otherwise, the individual is considered uninfected. This continues until the individual is infected or until the end of the trial. The output of this function is a list: one dataframe with all participants who remain in the trial, and a second dataframe with the individuals who are removed from the trial after being infected before vaccine immunity sets in.
+_simInf()_ : generates time-to-infection for each individual from the weekly overall risk (multiple of individual risk factor and weekly country risk). If the time to infection is within a week, the infection is recorded. Otherwise, the individual is considered uninfected. This continues until the individual is infected or until the end of the trial. The output of this function is a list: one dataframe with all participants who remain in the trial, and a second dataframe with the individuals who are removed from the trial after being infected before vaccine immunity sets in.
 
-getCZSoutcome() : based on time-to-pregnancy and time-to-infection, assigns CZS risk based on trimester of infection and generates CZS outcome from binomial distribution.
+_getCZSoutcome()_ : based on time-to-pregnancy and time-to-infection, assigns CZS risk based on trimester of infection and generates CZS outcome from binomial distribution.
 
-symptomatic() : symptomatic disease is modeled from the binomial distribution for all infected participants. Time until symptoms was generated using the Weibull distribution. Parameters for incubation period were median and first and third quartiles available from Lessler, et al. 2016. Conversion of summary incubation statistics to Weibull distribution parameters used the method of Justus, 1977: 
+_symptomatic()_ : symptomatic disease is modeled from the binomial distribution for all infected participants. Time until symptoms was generated using the Weibull distribution. Parameters for incubation period were median and first and third quartiles available from Lessler, et al. 2016. Conversion of summary incubation statistics to Weibull distribution parameters used the method of Justus, 1977: 
 
 k = ln[ln(0.25)/ln(0.75)]/ln(third quartile/first quartile) 
 k = 3.132
@@ -77,7 +77,7 @@ x<-seq(0,15, by = 0.01)
 plot(x,dweibull(x,3.132,6.632), main = "ZIKV Incubation Period Distribution", xlab = "Days", ylab = "Density")
 ```
 
-persistence() : using in_interval() helper function, creates set of testing days weekly, biweekly, or monthly from trial start date. This function also generates time to first detectable sample of ZIKV RNA in blood, and time to last detectable sample, from the Weibull distribution. Parameters for persistence of viremia were mean and first and third quartiles available from Lessler, et al. 2016. Conversion of summary persistence statistics to Weibull distribution parameters used the method of Justus, 1977:
+_persistence()_ : using in_interval() helper function, creates set of testing days weekly, biweekly, or monthly from trial start date. This function also generates time to first detectable sample of ZIKV RNA in blood, and time to last detectable sample, from the Weibull distribution. Parameters for persistence of viremia were mean and first and third quartiles available from Lessler, et al. 2016. Conversion of summary persistence statistics to Weibull distribution parameters used the method of Justus, 1977:
 
 k = ln[ln(0.25)/ln(0.75)]/ln(third quartile/first quartile) 
 k = 2.007

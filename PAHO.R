@@ -20,7 +20,7 @@ fileURLs<-c("https://raw.githubusercontent.com/andersen-lab/zika-epidemiology/ma
             "https://raw.githubusercontent.com/andersen-lab/zika-epidemiology/master/paho_case_numbers/south_america.csv")
 PAHOdata <- as.data.frame(unlist(lapply(fileURLs,fread), recursive=FALSE)) 
 
-# selecting from PAHOdata the 4 best places to be to get Zika, based on projection. 
+# selecting from PAHOdata the 6 best places to be to get Zika, based on projection. 
 # 'susp.con.ZIKV.cases' downloaded as the year column, 'V2' is the date (mo/day)  
 
 PAHOdata <- subset(PAHOdata, select = c('Colombia', 'Costa.Rica',  
