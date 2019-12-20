@@ -19,31 +19,72 @@ library(mefa)
 library(survival)
 
 
-### Calculate number of cores:
+# The code to run  the full simulation is provided below in lines 60-84. Un-comment to run. The following code, lines
+#    29:55, runs the simulation for a small portion of the parameter space. This will still take a few minutes to run.
 
-no_cores <- #
-   
+
+####### Sample run #######
+
+### Calculate number of cores:
+no_cores <- 2
+
 ### Initiate cluster:
-   
-   cl <- makeCluster(no_cores)
+
+cl <- makeCluster(no_cores)
 registerDoParallel(cl)
 
 clusterEvalQ(cl, c(library(tidyverse), library(data.table), library(mefa), library(gsDesign), library(survival)))
 
+### Source function files and load rate data:
 source('simulationFXNs.R')
 source('analyzeFXN.R')
 
 load('paho.Rdata')
 
+### create parameter value set
 params<-makeParms()
+params <- params[params$regSize == 500,][1:9,] #keep a small portion of total parameter possibilities
+params$iter <- 50 #reduce number of iterations to 50, from 250, to speed up computation.
 
-results <- foreach(parms = iter(params, by='row')) %dopar% analyzeTrial(parms) 
+results <- foreach(parms = iter(params, by='row')) %dopar% analyzeTrial(parms)
 
 stopCluster(cl)
 
 trialOut <- do.call('rbind', results)
 trialOut <- cbind(params,trialOut)
-write.csv(trialOut, file='trialOut.csv')
+
+view(trialOut)
+
+
+######### Full simulation #########
+
+# ### Calculate number of cores:
+# 
+# no_cores <- 2
+# 
+# ### Initiate cluster:
+# 
+# cl <- makeCluster(no_cores)
+# registerDoParallel(cl)
+# 
+# clusterEvalQ(cl, c(library(tidyverse), library(data.table), library(mefa), library(gsDesign), library(survival)))
+# 
+# source('simulationFXNs.R')
+# source('analyzeFXN.R')
+# 
+# load('paho.Rdata')
+# 
+# params<-makeParms()
+# 
+# results <- foreach(parms = iter(params, by='row')) %dopar% analyzeTrial(parms)
+# 
+# stopCluster(cl)
+# 
+# trialOut <- do.call('rbind', results)
+# trialOut <- cbind(params,trialOut)
+# write.csv(trialOut, file='trialOut.csv')
+
+
 
 
 ## LICENSE

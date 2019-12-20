@@ -43,7 +43,7 @@ nestPaho <- function(paho){
               measure.vars = c(3:6),
               variable.name = "country",
               value.name = "rate")
-   temp<-nest(temp, -country)
+   temp<-nest(temp,data = c(date, week, rate))
 }
 
 
@@ -86,11 +86,11 @@ mergeData <- function(temp, paho, parms) with(parms, {
    trial<-cbind(trial,paho)
    
    trial$immuneDate <- as.Date(trial$startDate) + 30
-   trial$totalRate<-ifelse(trial$date < as.Date(trial$immuneDate),trial$indRR*trial$rate,
+   trial$totalRate <- ifelse(trial$date < as.Date(trial$immuneDate),trial$indRR*trial$rate,
                            trial$indRR*trial$rate*ifelse(trial$arm=='vaccine',1-vaccEff,1))
    
    trial<-trial[trial$date >= trial$startDate,]
-   trial<-trial[,c(1:7,9:11)]
+   trial<-trial[,c(3:12)]
    
    trial
 })
@@ -114,7 +114,7 @@ simPreg <- function(trial,parms) with(parms, {
       #pulling out out each country. co1, co2, co3, co4, as trial length will differ for each:
       cos<-unique(trial$country)
       
-      coList <- list()
+      pregTrial <- data.frame()
       
       for(i in 1:4){
          co<-trial[trial$country==cos[i],]
@@ -123,10 +123,8 @@ simPreg <- function(trial,parms) with(parms, {
          co$cycleProbs<-cyclePs(parms, co$mos[1])
          co$month<-1:co$mos[1]
          
-         coList[i] <- co
+         pregTrial <- bind_rows(pregTrial,co)
       }
-      
-      pregTrial<-do.call('rbind', coList)
       
       pregTrial$pregTime<-rexp(nrow(pregTrial),rate = pregTrial$cycleProbs)
       pregTrial<-pregTrial[pregTrial$pregTime<=1,]
@@ -145,8 +143,9 @@ simPreg <- function(trial,parms) with(parms, {
 #Using weekly total risk, simulate time-to-infection. 
 #Individuals infected before the immune date (30 days post start) are removed, and all remaining 
 #individuals have survival times until first week infectTime <= 1, or Inf for those uninfected
-simInf<-function(trial,parms) with(parms, { 
-   
+simInf<-function(trial,parms,browse = F) with(parms, { 
+   if(browse) browser()
+   trial$infectTime <- NA
    trial$infectTime<-suppressWarnings(ifelse(trial$totalRate == 0, Inf, rexp(nrow(trial),rate=trial$totalRate)))
    
    #identify infections prior to protective immunity.

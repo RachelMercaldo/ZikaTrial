@@ -5,7 +5,7 @@ output: html_document
 
 This repository contains code to accompany:
 
-Rachel A. Mercaldo, Steven E. Bellan; Evaluation of Alternative Endpoints for Zika Virus Vaccine Efficacy Trials (In submission); 2019
+Rachel A. Mercaldo, Steven E. Bellan. "Evaluation of Alternative Endpoints for Zika Virus Vaccine Efficacy Trials," Vaccine 37:15, April, 2019, pg: 2099-2105.
 
 Rachel Mercaldo, 2019
 License at bottom.
